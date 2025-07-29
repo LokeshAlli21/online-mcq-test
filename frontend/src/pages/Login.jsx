@@ -33,7 +33,7 @@ const Login = () => {
     // Remove all non-digit characters for validation
     const cleanPhone = phone.replace(/\D/g, '');
     // Accept 10-15 digits (covers most international formats)
-    return cleanPhone.length >= 10 && cleanPhone.length <= 15;
+    return cleanPhone.length === 10 ;
   }, []);
 
   // Detect input type based on content
@@ -70,7 +70,7 @@ const Login = () => {
         }
       } else {
         if (!validatePhone(formData.emailOrPhone)) {
-          newErrors.emailOrPhone = 'Please enter a valid phone number (10-15 digits)';
+          newErrors.emailOrPhone = 'Please enter a valid phone number (10 digits)';
         }
       }
     }
@@ -117,19 +117,17 @@ const Login = () => {
     setLoading(true);
 
     try {
-
-      const response = await authService.login(formData);
+    console.log('Form submitted with:', formData);
+      const response = await authService.login({...formData, inputType});
       
       if (response?.user) {
         dispatch(login(response.user));
         toast.success('🎉 Welcome back!');
         navigate('/', { replace: true });
+        setFormData({ emailOrPhone: '', password: '' });
+        console.log('Login successful with:', formData);
       }
-
-      console.log('Login successful with:', formData);
       
-      // Reset form
-      setFormData({ emailOrPhone: '', password: '' });
     } catch (error) {
       const errorMessage = error?.response?.data?.message || 'Invalid credentials. Please try again.';
       toast.error(`🚫 ${errorMessage}`);
@@ -215,7 +213,7 @@ const Login = () => {
                 <BookOpen className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                MCQ Master
+                MCQ Test
               </h1>
               <p className="text-gray-500 text-sm mt-1">Test Your Knowledge</p>
             </div>
@@ -241,7 +239,7 @@ const Login = () => {
                 </div>
               </div> */}
 
-              <div onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Email/Phone Field */}
                 <div className="space-y-2">
                   <label htmlFor="emailOrPhone" className="block text-sm font-semibold text-gray-700">
@@ -371,7 +369,7 @@ const Login = () => {
                     'Sign In'
                   )}
                 </button>
-              </div>
+              </form>
 
               {/* Sign Up Link */}
               <div className="text-center pt-6 border-t border-gray-200">

@@ -61,10 +61,12 @@ class AuthService {
   }
 
   // Login User
-  async login({ email, password }) {
-    if (!email) {
-      toast.warn("📧 Email is required to login.");
-      console.log("Email is not available for login");
+  async login(formData) {
+    console.log("formData at login service in auth.js :: formData:",formData);
+    const { emailOrPhone, password, inputType } = formData;
+    if (!emailOrPhone) {
+      toast.warn("📧 Email or Phone is required to login.");
+      console.log("Email or Phone is not available for login");
       return;
     }
     if (!password) {
@@ -72,27 +74,24 @@ class AuthService {
       console.log("Password is not available for login");
       return;
     }
-
     try {
       const response = await fetch(`${this.baseUrl}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ emailOrPhone, password, inputType }),
       });
 
       const data = await response.json();
 
-      // console.log("data at login service in auth.js :: data:",data);
+      console.log("data at login service in auth.js :: data:",data);
       
 
       if (!response.ok) {
-        toast.error("🚫 Invalid credentials. Please try again.");
-        throw new Error("Invalid credentials");
+        toast.error("🚫 Login failed. Please check your credentials.");
+        throw new Error(data.message || "Login failed");
       }
 
-      localStorage.removeItem("authTokenForPromoter"); // Clear any previous token for promoter
       localStorage.setItem("authToken", data?.user?.token);
-      // toast.success(`Welcome back! Logged in successfully.`);
       return data;
 
     } catch (error) {
