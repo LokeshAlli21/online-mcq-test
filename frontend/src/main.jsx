@@ -7,7 +7,7 @@ import AuthLayout from './auth/AuthLayout.jsx'
 import store from "./store/store.js"
 import { Provider } from "react-redux"
 
-import {NotFoundPage , Login, Dashboard} from './pages/index.js'
+import {NotFoundPage , Login, Dashboard , SignUp} from './pages/index.js'
 
 const router = createBrowserRouter([
   {
@@ -19,6 +19,13 @@ const router = createBrowserRouter([
         element: 
         <AuthLayout authentication={false}>
           <Login />
+        </AuthLayout>,
+      },
+      {
+        path: "/register",
+        element: 
+        <AuthLayout authentication={false}>
+          <SignUp />
         </AuthLayout>,
       },
       {

@@ -1,26 +1,29 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Eye, EyeOff, Mail, Phone, Lock, Loader2, BookOpen, Trophy, Users, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Phone, Lock, Loader2, BookOpen, Trophy, Users, CheckCircle, User } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../store/authSlice';
 import authService from '../backend-services/auth/auth'
 import { toast } from 'react-toastify';
 
-const Login = () => {
+const SignUp = () => {
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   // Form state
   const [formData, setFormData] = useState({
-    emailOrPhone: '',
-    password: ''
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: ''
   });
   
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [inputType, setInputType] = useState('email'); // 'email' or 'phone'
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Email validation
   const validateEmail = useCallback((email) => {
@@ -34,6 +37,12 @@ const Login = () => {
     const cleanPhone = phone.replace(/\D/g, '');
     // Accept 10-15 digits (covers most international formats)
     return cleanPhone.length >= 10 && cleanPhone.length <= 15;
+  }, []);
+
+  // Name validation
+  const validateName = useCallback((name) => {
+    const trimmedName = name.trim();
+    return trimmedName.length >= 2 && trimmedName.length <= 50;
   }, []);
 
   // Detect input type based on content
@@ -59,31 +68,46 @@ const Login = () => {
   const validateForm = useCallback(() => {
     const newErrors = {};
 
-    if (!formData.emailOrPhone.trim()) {
-      newErrors.emailOrPhone = 'Email or phone number is required';
-    } else {
-      const currentInputType = detectInputType(formData.emailOrPhone);
-      
-      if (currentInputType === 'email') {
-        if (!validateEmail(formData.emailOrPhone)) {
-          newErrors.emailOrPhone = 'Please enter a valid email address';
-        }
-      } else {
-        if (!validatePhone(formData.emailOrPhone)) {
-          newErrors.emailOrPhone = 'Please enter a valid phone number (10-15 digits)';
-        }
-      }
+    // Name validation
+    if (!formData.name.trim()) {
+      newErrors.name = 'Full name is required';
+    } else if (!validateName(formData.name)) {
+      newErrors.name = 'Name must be between 2-50 characters';
     }
 
+    // Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email address is required';
+    } else if (!validateEmail(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    // Phone validation
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else if (!validatePhone(formData.phone)) {
+      newErrors.phone = 'Please enter a valid phone number (10-15 digits)';
+    }
+
+    // Password validation
     if (!formData.password.trim()) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length > 128) {
+      newErrors.password = 'Password must be less than 128 characters';
+    }
+
+    // Confirm password validation
+    if (!formData.confirmPassword.trim()) {
+      newErrors.confirmPassword = 'Please confirm your password';
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData, validateEmail, validatePhone, detectInputType]);
+  }, [formData, validateEmail, validatePhone, validateName]);
 
   // Handle input changes
   const handleInputChange = useCallback((e) => {
@@ -93,12 +117,6 @@ const Login = () => {
       [name]: value
     }));
     
-    // Update input type detection for emailOrPhone field
-    if (name === 'emailOrPhone') {
-      const detectedType = detectInputType(value);
-      setInputType(detectedType);
-    }
-    
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -106,7 +124,23 @@ const Login = () => {
         [name]: ''
       }));
     }
-  }, [errors, detectInputType]);
+
+    // Clear confirm password error if passwords start matching
+    if (name === 'password' || name === 'confirmPassword') {
+      if (name === 'password' && formData.confirmPassword && value === formData.confirmPassword) {
+        setErrors(prev => ({
+          ...prev,
+          confirmPassword: ''
+        }));
+      }
+      if (name === 'confirmPassword' && formData.password && value === formData.password) {
+        setErrors(prev => ({
+          ...prev,
+          confirmPassword: ''
+        }));
+      }
+    }
+  }, [errors, formData.password, formData.confirmPassword]);
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -117,31 +151,42 @@ const Login = () => {
     setLoading(true);
 
     try {
+      // Prepare data for API
+      const signupData = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        password: formData.password
+      };
 
-      const response = await authService.login(formData);
+      const response = await authService.signup(signupData);
       
       if (response?.user) {
         dispatch(login(response.user));
-        toast.success('🎉 Welcome back!');
+        toast.success('🎉 Welcome! Your account has been created successfully!');
         navigate('/', { replace: true });
       }
 
-      console.log('Login successful with:', formData);
+      console.log('Signup successful with:', signupData);
       
       // Reset form
-      setFormData({ emailOrPhone: '', password: '' });
+      setFormData({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
     } catch (error) {
-      const errorMessage = error?.response?.data?.message || 'Invalid credentials. Please try again.';
+      const errorMessage = error?.response?.data?.message || 'Account creation failed. Please try again.';
       toast.error(`🚫 ${errorMessage}`);
-      alert('🚫 Login failed. Please try again.');
+      console.error('Signup error:', error);
     } finally {
       setLoading(false);
     }
   };
 
   // Toggle password visibility
-  const togglePasswordVisibility = () => {
-    setShowPassword(prev => !prev);
+  const togglePasswordVisibility = (field) => {
+    if (field === 'password') {
+      setShowPassword(prev => !prev);
+    } else {
+      setShowConfirmPassword(prev => !prev);
+    }
   };
 
   return (
@@ -173,14 +218,14 @@ const Login = () => {
             
             <div className="space-y-4">
               <h2 className="text-4xl font-bold text-gray-900 leading-tight">
-                Welcome back to your
+                Start your
                 <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  learning journey
+                  learning adventure
                 </span>
               </h2>
               <p className="text-lg text-gray-600 leading-relaxed">
-                Continue mastering your skills with our comprehensive MCQ tests. 
-                Track your progress and achieve excellence.
+                Join thousands of learners worldwide. Create your account and begin 
+                mastering new skills with our comprehensive MCQ tests.
               </p>
             </div>
           </div>
@@ -188,9 +233,9 @@ const Login = () => {
           {/* Feature Cards */}
           <div className="grid grid-cols-1 gap-4">
             {[
-              { icon: Trophy, title: "Track Progress", desc: "Monitor your performance and improvement over time" },
-              { icon: Users, title: "Compete Globally", desc: "Join thousands of learners worldwide" },
-              { icon: CheckCircle, title: "Instant Results", desc: "Get immediate feedback on your answers" }
+              { icon: Trophy, title: "Achieve Excellence", desc: "Earn certificates and track your progress" },
+              { icon: Users, title: "Join Community", desc: "Connect with learners from around the world" },
+              { icon: CheckCircle, title: "Learn Effectively", desc: "Get instant feedback and detailed explanations" }
             ].map((feature, index) => (
               <div key={index} className="flex items-start space-x-4 p-4 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/20 hover:bg-white/70 transition-all duration-300 group">
                 <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -205,7 +250,7 @@ const Login = () => {
           </div>
         </div>
 
-        {/* Right Side - Login Form */}
+        {/* Right Side - SignUp Form */}
         <div className="w-full max-w-md mx-auto lg:mx-0">
           <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 lg:p-10">
             
@@ -223,77 +268,118 @@ const Login = () => {
             <div className="space-y-6">
               <div className="text-center lg:text-left">
                 <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
-                  Welcome back
+                  Create account
                 </h2>
                 <p className="text-gray-600">
-                  Sign in to continue your learning journey
+                  Join us and start your learning journey today
                 </p>
               </div>
 
-              {/* <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+              {/* <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-4 h-4 text-blue-600" />
+                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
                   </div>
-                  <div className="text-sm text-blue-800">
-                    <span className="font-medium">Demo credentials:</span> any email/phone & password (6+ chars)
+                  <div className="text-sm text-green-800">
+                    <span className="font-medium">Demo mode:</span> Use any valid details to create account
                   </div>
                 </div>
               </div> */}
 
-              <div onSubmit={handleSubmit} className="space-y-6">
-                {/* Email/Phone Field */}
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Name Field */}
                 <div className="space-y-2">
-                  <label htmlFor="emailOrPhone" className="block text-sm font-semibold text-gray-700">
-                    Email Address / Phone Number
+                  <label htmlFor="name" className="block text-sm font-semibold text-gray-700">
+                    Full Name
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      {inputType === 'email' ? (
-                        <Mail className={`w-5 h-5 transition-colors ${errors.emailOrPhone ? 'text-red-400' : 'text-gray-400'}`} />
-                      ) : (
-                        <Phone className={`w-5 h-5 transition-colors ${errors.emailOrPhone ? 'text-red-400' : 'text-gray-400'}`} />
-                      )}
+                      <User className={`w-5 h-5 transition-colors ${errors.name ? 'text-red-400' : 'text-gray-400'}`} />
                     </div>
                     <input
-                      id="emailOrPhone"
-                      name="emailOrPhone"
-                      type={inputType === 'email' ? 'email' : 'tel'}
-                      value={formData.emailOrPhone}
+                      id="name"
+                      name="name"
+                      type="text"
+                      value={formData.name}
                       onChange={handleInputChange}
                       className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-200 text-gray-900 placeholder-gray-500 ${
-                        errors.emailOrPhone 
+                        errors.name 
                           ? 'border-red-300 focus:border-red-500 bg-red-50' 
                           : 'border-gray-200 focus:border-blue-500 focus:bg-white'
                       }`}
-                      placeholder={inputType === 'email' ? 'Enter your email address' : 'Enter your phone number'}
+                      placeholder="Enter your full name"
                       disabled={loading}
                     />
-                    {/* Input type indicator */}
-                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
-                      <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
-                        inputType === 'email' 
-                          ? 'bg-blue-100 text-blue-600' 
-                          : 'bg-green-100 text-green-600'
-                      }`}>
-                        {inputType === 'email' ? 'Email' : 'Phone'}
-                      </span>
-                    </div>
                   </div>
-                  {errors.emailOrPhone && (
+                  {errors.name && (
                     <p className="text-red-500 text-sm flex items-center space-x-1 animate-fade-in">
                       <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                      <span>{errors.emailOrPhone}</span>
+                      <span>{errors.name}</span>
                     </p>
                   )}
-                  {/* Format hints */}
-                  {formData.emailOrPhone && !errors.emailOrPhone && (
-                    <div className="text-xs text-gray-500 pl-1">
-                      {inputType === 'email' 
-                        ? '✓ Email format detected' 
-                        : '✓ Phone number format detected'
-                      }
+                </div>
+
+                {/* Email Field */}
+                <div className="space-y-2">
+                  <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Mail className={`w-5 h-5 transition-colors ${errors.email ? 'text-red-400' : 'text-gray-400'}`} />
                     </div>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                        errors.email 
+                          ? 'border-red-300 focus:border-red-500 bg-red-50' 
+                          : 'border-gray-200 focus:border-blue-500 focus:bg-white'
+                      }`}
+                      placeholder="Enter your email address"
+                      disabled={loading}
+                    />
+                  </div>
+                  {errors.email && (
+                    <p className="text-red-500 text-sm flex items-center space-x-1 animate-fade-in">
+                      <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                      <span>{errors.email}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Phone Field */}
+                <div className="space-y-2">
+                  <label htmlFor="phone" className="block text-sm font-semibold text-gray-700">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Phone className={`w-5 h-5 transition-colors ${errors.phone ? 'text-red-400' : 'text-gray-400'}`} />
+                    </div>
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                        errors.phone 
+                          ? 'border-red-300 focus:border-red-500 bg-red-50' 
+                          : 'border-gray-200 focus:border-blue-500 focus:bg-white'
+                      }`}
+                      placeholder="Enter your phone number"
+                      disabled={loading}
+                    />
+                  </div>
+                  {errors.phone && (
+                    <p className="text-red-500 text-sm flex items-center space-x-1 animate-fade-in">
+                      <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                      <span>{errors.phone}</span>
+                    </p>
                   )}
                 </div>
 
@@ -317,12 +403,12 @@ const Login = () => {
                           ? 'border-red-300 focus:border-red-500 bg-red-50' 
                           : 'border-gray-200 focus:border-blue-500 focus:bg-white'
                       }`}
-                      placeholder="Enter your password"
+                      placeholder="Create a password"
                       disabled={loading}
                     />
                     <button
                       type="button"
-                      onClick={togglePasswordVisibility}
+                      onClick={() => togglePasswordVisibility('password')}
                       className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
                       disabled={loading}
                     >
@@ -335,26 +421,59 @@ const Login = () => {
                       <span>{errors.password}</span>
                     </p>
                   )}
+                  {/* Password strength indicator */}
+                  {formData.password && !errors.password && (
+                    <div className="text-xs text-gray-500 pl-1">
+                      ✓ Password meets requirements
+                    </div>
+                  )}
                 </div>
 
-                {/* Remember Me & Forgot Password */}
-                {/* <div className="flex items-center justify-between text-sm">
-                  <label className="flex items-center space-x-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 transition-all"
-                    />
-                    <span className="text-gray-600 group-hover:text-gray-800 transition-colors">
-                      Remember me
-                    </span>
+                {/* Confirm Password Field */}
+                <div className="space-y-2">
+                  <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700">
+                    Confirm Password
                   </label>
-                  <button
-                    type="button"
-                    className="text-blue-600 hover:text-blue-800 font-medium transition-colors hover:underline"
-                  >
-                    Forgot password?
-                  </button>
-                </div> */}
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Lock className={`w-5 h-5 transition-colors ${errors.confirmPassword ? 'text-red-400' : 'text-gray-400'}`} />
+                    </div>
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      className={`w-full pl-12 pr-12 py-4 bg-gray-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-200 text-gray-900 placeholder-gray-500 ${
+                        errors.confirmPassword 
+                          ? 'border-red-300 focus:border-red-500 bg-red-50' 
+                          : 'border-gray-200 focus:border-blue-500 focus:bg-white'
+                      }`}
+                      placeholder="Confirm your password"
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => togglePasswordVisibility('confirmPassword')}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                      disabled={loading}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && (
+                    <p className="text-red-500 text-sm flex items-center space-x-1 animate-fade-in">
+                      <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                      <span>{errors.confirmPassword}</span>
+                    </p>
+                  )}
+                  {/* Password match indicator */}
+                  {formData.confirmPassword && formData.password === formData.confirmPassword && !errors.confirmPassword && (
+                    <div className="text-xs text-green-600 pl-1">
+                      ✓ Passwords match
+                    </div>
+                  )}
+                </div>
 
                 {/* Submit Button */}
                 <button
@@ -365,20 +484,20 @@ const Login = () => {
                   {loading ? (
                     <div className="flex items-center justify-center space-x-2">
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Signing in...</span>
+                      <span>Creating account...</span>
                     </div>
                   ) : (
-                    'Sign In'
+                    'Create Account'
                   )}
                 </button>
-              </div>
+              </form>
 
-              {/* Sign Up Link */}
+              {/* Sign In Link */}
               <div className="text-center pt-6 border-t border-gray-200">
                 <p className="text-gray-600">
-                  Don't have an account?{' '}
-                  <button onClick={() => navigate('/register')} className="text-blue-600 hover:text-blue-800 font-semibold transition-colors hover:underline">
-                    Sign up here
+                  Already have an account?{' '}
+                  <button onClick={() => navigate('/login')} className="text-blue-600 hover:text-blue-800 font-semibold transition-colors hover:underline">
+                    Sign in here
                   </button>
                 </p>
               </div>
@@ -414,4 +533,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default SignUp;
