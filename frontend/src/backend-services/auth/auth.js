@@ -3,7 +3,61 @@ import { toast } from "react-toastify";
 
 class AuthService {
   constructor() {
-    this.baseUrl = env.backendUrl;
+    if(env.production){
+      this.baseUrl = env.backendUrlProduction;
+    } else {
+      this.baseUrl = env.backendUrl;
+    }
+  }
+
+  async signup({name,email,phone,password}){
+    if (!name) {
+      toast.warn("📝 Name is required to signup.");
+      console.log("Name is not available for signup");
+      return;
+    }
+    if (!email) {
+      toast.warn("📧 Email is required to signup.");
+      console.log("Email is not available for signup");
+      return;
+    }
+    if (!phone) {
+      toast.warn("📞 Phone number is required to signup.");
+      console.log("Phone number is not available for signup");
+      return;
+    }
+    if (!password) {
+      toast.warn("🔒 Password is required to signup.");
+      console.log("Password is not available for signup");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}/api/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, phone, password }),
+      });
+
+      const data = await response.json();
+
+      // console.log("data at signup service in auth.js :: data:",data);
+      
+
+      if (!response.ok) {
+        toast.error("🚫 Signup failed. Please try again.");
+        throw new Error(data.message || "Signup failed");
+      }
+
+      localStorage.setItem("authToken", data?.user?.token);
+      // toast.success(`Welcome ${data.user.name}! Signup successful.`);
+      
+      return data;
+
+    } catch (error) {
+      console.error("AuthService Signup Error:", error);
+      throw error;
+    }
   }
 
   // Login User

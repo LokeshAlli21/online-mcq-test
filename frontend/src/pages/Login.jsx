@@ -387,7 +387,7 @@ const Login = () => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style jsx="true">{`
         .bg-grid-pattern {
           background-image: 
             linear-gradient(90deg, rgba(0,0,0,.03) 1px, transparent 1px),
