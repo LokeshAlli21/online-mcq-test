@@ -8,8 +8,8 @@ CREATE TABLE users (
     email_verified BOOLEAN DEFAULT false, -- Added email verification
     phone_verified BOOLEAN DEFAULT false, -- Added phone verification
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'),
+    updated_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
 );
 
 -- Admin-specific information
@@ -19,7 +19,7 @@ CREATE TABLE admins (
     full_name VARCHAR(200) NOT NULL,
     role VARCHAR(50) DEFAULT 'admin',
     permissions JSONB DEFAULT '["create_tests", "manage_users", "view_reports"]',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'),
     UNIQUE(user_id)
 );
 
@@ -30,7 +30,7 @@ CREATE TABLE boards (
     full_name VARCHAR(200),
     description TEXT,
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
 );
 
 -- Medium of instruction
@@ -38,7 +38,7 @@ CREATE TABLE mediums (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL UNIQUE,
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
 );
 
 -- Schools/Institutions (Changed to TEXT for lengthy names)
@@ -54,7 +54,7 @@ CREATE TABLE schools (
     contact_phone VARCHAR(20),
     contact_email VARCHAR(255),
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
 );
 
 -- Student-specific information and profile
@@ -70,8 +70,8 @@ CREATE TABLE students (
     medium_id INTEGER NOT NULL REFERENCES mediums(id),
     class_level INTEGER NOT NULL CHECK (class_level BETWEEN 1 AND 12), -- Extended to 12th
     academic_year VARCHAR(10),
-    enrollment_date DATE DEFAULT CURRENT_DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    enrollment_date DATE DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::DATE, --CURRENT_DATE
+    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'),
     UNIQUE(user_id),
     UNIQUE(student_id)
 );
@@ -83,7 +83,7 @@ CREATE TABLE categories (
     description TEXT,
     is_active BOOLEAN DEFAULT true,
     created_by INTEGER NOT NULL REFERENCES admins(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
 );
 
 -- Tests configuration with enhanced marking system
@@ -106,8 +106,8 @@ CREATE TABLE tests (
     target_schools JSONB,
     is_active BOOLEAN DEFAULT true,
     created_by INTEGER NOT NULL REFERENCES admins(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'),
+    updated_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
 );
 
 -- Questions with individual marks (Enhanced marking system)
@@ -124,7 +124,7 @@ CREATE TABLE questions (
     difficulty_level VARCHAR(20) DEFAULT 'medium' CHECK (difficulty_level IN ('easy', 'medium', 'hard')),
     question_order INTEGER NOT NULL DEFAULT 1,
     created_by INTEGER NOT NULL REFERENCES admins(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'),
     -- Ensure correct_answers contains valid indices
     CONSTRAINT valid_correct_answers CHECK (
         jsonb_array_length(correct_answers) >= 1 AND
@@ -153,7 +153,7 @@ CREATE TABLE test_attempts (
     partial_credit_answers INTEGER NOT NULL DEFAULT 0,
     time_taken_minutes INTEGER CHECK (time_taken_minutes > 0),
     is_passed BOOLEAN,
-    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'),
     completed_at TIMESTAMP,
     UNIQUE(test_id, student_id, attempt_number)
 );
@@ -176,11 +176,11 @@ CREATE TABLE certificates (
     id SERIAL PRIMARY KEY,
     attempt_id INTEGER NOT NULL REFERENCES test_attempts(id) ON DELETE CASCADE,
     student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-    certificate_number VARCHAR(50) UNIQUE NOT NULL DEFAULT ('CERT_' || EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::BIGINT || '_' || FLOOR(RANDOM() * 1000)),
+    certificate_number VARCHAR(50) UNIQUE NOT NULL DEFAULT ('CERT_' || EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'))::BIGINT || '_' || FLOOR(RANDOM() * 1000)),
     test_title VARCHAR(200) NOT NULL,
     student_name VARCHAR(200) NOT NULL,
     marks_obtained DECIMAL(8,2) NOT NULL,
     total_marks DECIMAL(8,2) NOT NULL,
     percentage_score DECIMAL(5,2) NOT NULL,
-    issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    issued_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
 );

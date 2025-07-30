@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_at = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata');
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -191,7 +191,7 @@ BEGIN
             unanswered_questions = unanswered_count,
             partial_credit_answers = partial_count,
             is_passed = is_passed_calc,
-            completed_at = CURRENT_TIMESTAMP
+            completed_at = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
         WHERE id = attempt_id_param;
     END;
 END;
