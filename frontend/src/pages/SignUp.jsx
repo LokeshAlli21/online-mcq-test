@@ -260,7 +260,7 @@ const SignUp = () => {
                 <BookOpen className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                MCQ Master
+                MCQ Test
               </h1>
               <p className="text-gray-500 text-sm mt-1">Test Your Knowledge</p>
             </div>

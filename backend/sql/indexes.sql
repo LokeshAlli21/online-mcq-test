@@ -1,0 +1,21 @@
+-- Essential indexes for performance
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_type_active ON users(user_type, is_active);
+CREATE INDEX idx_admins_user ON admins(user_id);
+CREATE INDEX idx_students_user ON students(user_id);
+CREATE INDEX idx_students_student_id ON students(student_id);
+CREATE INDEX idx_students_class_board ON students(class_level, board_id);
+CREATE INDEX idx_students_school ON students(school_id);
+CREATE INDEX idx_boards_active ON boards(is_active);
+CREATE INDEX idx_mediums_active ON mediums(is_active);
+CREATE INDEX idx_schools_active ON schools(is_active);
+CREATE INDEX idx_categories_active ON categories(is_active);
+CREATE INDEX idx_tests_category_active ON tests(category_id, is_active);
+CREATE INDEX idx_tests_target_classes ON tests USING GIN (target_classes);
+CREATE INDEX idx_questions_test ON questions(test_id);
+CREATE INDEX idx_questions_test_order ON questions(test_id, question_order);
+CREATE INDEX idx_attempts_student_test ON test_attempts(student_id, test_id);
+CREATE INDEX idx_attempts_completed ON test_attempts(completed_at);
+CREATE INDEX idx_question_attempts_attempt ON question_attempts(attempt_id);
+CREATE INDEX idx_certificates_student ON certificates(student_id);
+CREATE INDEX idx_certificates_number ON certificates(certificate_number);
