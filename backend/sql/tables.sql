@@ -1,11 +1,12 @@
--- Modern Online MCQ Test Application Database Schema (Enhanced Version)
-
 -- Base users table for authentication
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(20), -- Added phone field
     password_hash VARCHAR(255) NOT NULL,
     user_type VARCHAR(10) NOT NULL CHECK (user_type IN ('student', 'admin')),
+    email_verified BOOLEAN DEFAULT false, -- Added email verification
+    phone_verified BOOLEAN DEFAULT false, -- Added phone verification
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -62,7 +63,6 @@ CREATE TABLE students (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     full_name VARCHAR(200) NOT NULL,
     student_id VARCHAR(50),
-    phone VARCHAR(20),
     date_of_birth DATE,
     address TEXT,
     school_id INTEGER REFERENCES schools(id),

@@ -1,7 +1,8 @@
 -- Views for easier querying
 CREATE VIEW admin_users AS
 SELECT 
-    u.id as user_id, u.email, u.is_active, u.created_at as registered_at,
+    u.id as user_id, u.email, u.phone, u.email_verified, u.phone_verified, 
+    u.is_active, u.created_at as registered_at,
     a.id as admin_id, a.full_name, a.role, a.permissions
 FROM users u
 JOIN admins a ON u.id = a.user_id
@@ -9,9 +10,10 @@ WHERE u.user_type = 'admin';
 
 CREATE VIEW student_users AS
 SELECT 
-    u.id as user_id, u.email, u.is_active, u.created_at as registered_at,
+    u.id as user_id, u.email, u.phone, u.email_verified, u.phone_verified,
+    u.is_active, u.created_at as registered_at,
     s.id as student_id, s.full_name, s.student_id as student_number,
-    s.phone, s.date_of_birth, s.class_level, s.academic_year, s.enrollment_date,
+    s.date_of_birth, s.class_level, s.academic_year, s.enrollment_date,
     sc.name as school_name, b.name as board_name, m.name as medium_name
 FROM users u
 JOIN students s ON u.id = s.user_id

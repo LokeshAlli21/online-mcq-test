@@ -10,17 +10,17 @@ INSERT INTO schools (name, code, board_id, city, state, contact_phone) VALUES
 ('Delhi Public School Pune - A Premier Educational Institution with Excellence in Academic and Co-curricular Activities', 'DPS001', 1, 'Pune', 'Maharashtra', '+91-20-12345678'),
 ('Ryan International School Mumbai - Fostering Global Citizens Through Quality Education and Character Development', 'RYAN002', 1, 'Mumbai', 'Maharashtra', '+91-22-87654321');
 
-INSERT INTO users (email, password_hash, user_type) VALUES
-('admin@test.com', '$2b$10$example_hash', 'admin'),
-('student1@test.com', '$2b$10$example_hash', 'student'),
-('student2@test.com', '$2b$10$example_hash', 'student');
+INSERT INTO users (email, phone, password_hash, user_type) VALUES
+('admin@test.com', '+91-9876543200', '$2b$10$example_hash', 'admin'),
+('student1@test.com', '+91-9876543210', '$2b$10$example_hash', 'student'),
+('student2@test.com', '+91-9876543211', '$2b$10$example_hash', 'student');
 
 INSERT INTO admins (user_id, full_name, role) VALUES
 (1, 'Admin User', 'super_admin');
 
-INSERT INTO students (user_id, full_name, student_id, phone, school_id, board_id, medium_id, class_level, academic_year) VALUES
-(2, 'Rahul Sharma', 'STU001', '+91-9876543210', 1, 1, 1, 7, '2024-25'),
-(3, 'Priya Patel', 'STU002', '+91-9876543211', 2, 1, 1, 8, '2024-25');
+INSERT INTO students (user_id, full_name, student_id, school_id, board_id, medium_id, class_level, academic_year) VALUES
+(2, 'Rahul Sharma', 'STU001', 1, 1, 1, 7, '2024-25'),
+(3, 'Priya Patel', 'STU002', 2, 1, 1, 8, '2024-25');
 
 INSERT INTO categories (name, description, created_by) VALUES
 ('Mathematics', 'Mathematics questions for classes 1-12', 1),
