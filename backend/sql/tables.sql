@@ -151,6 +151,10 @@ CREATE TABLE test_attempts (
     wrong_answers INTEGER NOT NULL DEFAULT 0,
     unanswered_questions INTEGER NOT NULL DEFAULT 0,
     partial_credit_answers INTEGER NOT NULL DEFAULT 0,
+    -- Optional additional fields for status tracking
+    skipped_questions INTEGER NOT NULL DEFAULT 0,
+    answered_questions INTEGER NOT NULL DEFAULT 0,
+    marked_for_review_questions INTEGER NOT NULL DEFAULT 0,
     time_taken_minutes INTEGER CHECK (time_taken_minutes > 0),
     is_passed BOOLEAN,
     started_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'),

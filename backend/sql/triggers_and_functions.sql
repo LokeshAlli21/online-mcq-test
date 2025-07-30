@@ -42,6 +42,10 @@ DECLARE
     wrong_count INTEGER := 0;
     unanswered_count INTEGER := 0;
     partial_count INTEGER := 0;
+    -- Status tracking counts
+    skipped_count INTEGER := 0;
+    answered_count INTEGER := 0;
+    marked_for_review_count INTEGER := 0;
     selected_options JSONB;
     is_question_correct BOOLEAN;
     is_question_partial BOOLEAN;
@@ -85,9 +89,11 @@ BEGIN
         IF selected_options IS NULL THEN
             -- Unanswered question
             unanswered_count := unanswered_count + 1;
+            skipped_count := skipped_count + 1;
             question_status := 'skipped';
         ELSE
             -- Question was answered
+            answered_count := answered_count + 1;
             question_status := 'answered';
             
             -- Check if answer is correct
@@ -186,7 +192,7 @@ BEGIN
             is_passed_calc := marks_obtained_calc >= passing_marks;
         END IF;
         
-        -- Update test attempt with calculated values
+        -- Update test attempt with calculated values including status counts
         UPDATE test_attempts SET
             total_marks = total_marks_calc,
             marks_obtained = marks_obtained_calc,
@@ -196,6 +202,9 @@ BEGIN
             wrong_answers = wrong_count,
             unanswered_questions = unanswered_count,
             partial_credit_answers = partial_count,
+            skipped_questions = skipped_count,
+            answered_questions = answered_count,
+            marked_for_review_questions = marked_for_review_count,
             is_passed = is_passed_calc,
             completed_at = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
         WHERE id = attempt_id_param;
