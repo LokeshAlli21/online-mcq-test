@@ -167,6 +167,7 @@ CREATE TABLE question_attempts (
     is_correct BOOLEAN NOT NULL DEFAULT false,
     is_partially_correct BOOLEAN NOT NULL DEFAULT false,
     marks_awarded DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(20) NOT NULL DEFAULT 'skipped', -- it may be skipped, answered, marked_for_review, etc.
     time_spent_seconds INTEGER DEFAULT 0,
     UNIQUE(attempt_id, question_id)
 );

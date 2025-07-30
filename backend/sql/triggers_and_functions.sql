@@ -46,6 +46,7 @@ DECLARE
     is_question_correct BOOLEAN;
     is_question_partial BOOLEAN;
     marks_for_question DECIMAL(5,2);
+    question_status VARCHAR(20);
 BEGIN
     -- Get attempt details
     SELECT ta.*, t.partial_credit_enabled, t.negative_marking, t.total_marks
@@ -79,11 +80,16 @@ BEGIN
         is_question_correct := false;
         is_question_partial := false;
         marks_for_question := 0.00;
+        question_status := 'skipped'; -- Default status
         
         IF selected_options IS NULL THEN
             -- Unanswered question
             unanswered_count := unanswered_count + 1;
+            question_status := 'skipped';
         ELSE
+            -- Question was answered
+            question_status := 'answered';
+            
             -- Check if answer is correct
             IF question_rec.question_type = 'single_choice' THEN
                 -- Single choice: exact match required
@@ -151,10 +157,10 @@ BEGIN
         -- Insert question attempt record
         INSERT INTO question_attempts (
             attempt_id, question_id, selected_answers, 
-            is_correct, is_partially_correct, marks_awarded
+            is_correct, is_partially_correct, marks_awarded, status
         ) VALUES (
             attempt_id_param, question_rec.id, selected_options,
-            is_question_correct, is_question_partial, marks_for_question
+            is_question_correct, is_question_partial, marks_for_question, question_status
         );
         
         marks_obtained_calc := marks_obtained_calc + marks_for_question;
