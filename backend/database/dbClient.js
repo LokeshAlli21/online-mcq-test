@@ -53,7 +53,7 @@ class DatabaseClient {
             this.retryCount = 0;
 
             console.log('✅ Database connected successfully');
-            console.log(`📊 Pool: min=${config.min}, max=${config.max}`);
+            // console.log(`📊 Pool: min=${config.min}, max=${config.max}`);
 
             // Handle pool events
             this.setupPoolEvents();

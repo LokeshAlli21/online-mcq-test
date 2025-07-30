@@ -1,14 +1,6 @@
 import env from '../../env/env';
 import { toast } from "react-toastify";
-
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezone from 'dayjs/plugin/timezone';
-
 import {authenticatedFetch} from '../fetchWrapper';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
 
 class DatabaseService {
   constructor() {
@@ -44,6 +36,19 @@ class DatabaseService {
       throw new Error(data.message || 'Something went wrong');
     }
     return data;
+  }
+
+  async getInstituteOptions() {
+    try {
+      const response = await authenticatedFetch(`${this.baseUrl}/api/institute-options/get`, {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      console.error("Error fetching institute options:", error);
+      throw error;
+    }
   }
   
 }
