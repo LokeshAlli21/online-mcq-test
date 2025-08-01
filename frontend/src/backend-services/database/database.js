@@ -50,6 +50,32 @@ class DatabaseService {
       throw error;
     }
   }
+
+  async getAllStudentExams(studentId) {
+    try {
+      const response = await authenticatedFetch(`${this.baseUrl}/api/exams/get-all-student-exams/${studentId}`, {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      console.error("Error fetching student exams:", error);
+      throw error;
+    }
+  }
+  
+  async getAllStudentExamAttempts(studentId) {
+    try {
+      const response = await authenticatedFetch(`${this.baseUrl}/api/exams/get-all-student-exam-attempts/${studentId}`, {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      console.error("Error fetching student exam attempts:", error);
+      throw error;
+    }
+  }
   
 }
 

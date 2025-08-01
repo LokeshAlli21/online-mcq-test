@@ -70,7 +70,7 @@ export const protect = async (req, res, next) => {
           u.phone_verified, u.is_active, u.created_at, u.updated_at,
           a.full_name, a.role, a.permissions
         FROM users u
-        LEFT JOIN admins a ON u.id = a.user_id
+        LEFT JOIN admins a ON u.id = a.id
         WHERE u.id = $1
       `;
     } else if (decoded.user_type === 'student') {
@@ -82,7 +82,7 @@ export const protect = async (req, res, next) => {
           s.school_id, s.board_id, s.medium_id, s.class_level, 
           s.academic_year, s.enrollment_date
         FROM users u
-        LEFT JOIN students s ON u.id = s.user_id
+        LEFT JOIN students s ON u.id = s.id
         WHERE u.id = $1
       `;
     } else {
@@ -302,7 +302,7 @@ export const optionalAuth = async (req, res, next) => {
               u.phone_verified, u.is_active, u.created_at,
               a.full_name, a.role, a.permissions
             FROM users u
-            LEFT JOIN admins a ON u.id = a.user_id
+            LEFT JOIN admins a ON u.id = a.id
             WHERE u.id = $1 AND u.is_active = true
           `;
         } else if (decoded.user_type === 'student') {
@@ -312,7 +312,7 @@ export const optionalAuth = async (req, res, next) => {
               u.phone_verified, u.is_active, u.created_at,
               s.full_name, s.student_id, s.class_level, s.board_id, s.medium_id
             FROM users u
-            LEFT JOIN students s ON u.id = s.user_id
+            LEFT JOIN students s ON u.id = s.id
             WHERE u.id = $1 AND u.is_active = true
           `;
         }

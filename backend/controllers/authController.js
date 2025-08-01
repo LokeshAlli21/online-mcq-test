@@ -77,19 +77,21 @@ export const signup = async (req, res, next) => {
     }
 
     // Check if student_id already exists
-    const existingStudentQuery = `
-      SELECT id, student_id 
-      FROM students 
-      WHERE student_id = $1
-    `;
+    if (student_id) {
+      const existingStudentQuery = `
+        SELECT id, student_id 
+        FROM students 
+        WHERE student_id = $1
+      `;
 
-    const existingStudent = await db.queryOne(existingStudentQuery, [student_id]);
+      const existingStudent = await db.queryOne(existingStudentQuery, [student_id]);
 
-    if (existingStudent) {
-      return res.status(409).json({
-        success: false,
-        message: 'Student with this ID already exists'
-      });
+      if (existingStudent) {
+        return res.status(409).json({
+          success: false,
+          message: 'Student with this ID already exists'
+        });
+      }
     }
 
     // Hash password
@@ -126,10 +128,10 @@ export const signup = async (req, res, next) => {
 
       const userId = newUser.rows[0].id;
 
-      // 2. Insert into students table with all provided data
+      // 2. Insert into students table using the same ID
       const insertStudentQuery = `
         INSERT INTO students (
-          user_id,
+          id,
           full_name,
           student_id,
           date_of_birth,
@@ -141,21 +143,21 @@ export const signup = async (req, res, next) => {
           enrollment_date,
           created_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-        RETURNING id, user_id, full_name, student_id, date_of_birth, 
+        RETURNING id, full_name, student_id, date_of_birth, 
                  address, school_id, board_id, medium_id, class_level, 
                  academic_year, enrollment_date, created_at
       `;
 
       const newStudent = await client.query(insertStudentQuery, [
-        userId,
+        userId, // Use the same ID from users table
         full_name.trim(),
         student_id,
         date_of_birth || null,
-        parseInt(school_id),
+        school_id ? parseInt(school_id) : null,
         parseInt(board_id),
         parseInt(medium_id),
         parseInt(class_level),
-        academic_year.trim()
+        academic_year ? academic_year.trim() : null
       ]);
 
       return {
@@ -259,6 +261,7 @@ export const login = async (req, res, next) => {
     }
 
     // Build dynamic query to get user data with both student and admin info
+    // Updated JOINs to use direct ID references
     let userQuery;
     let queryParams;
 
@@ -272,8 +275,8 @@ export const login = async (req, res, next) => {
           s.academic_year, s.enrollment_date,
           a.full_name as admin_name, a.role, a.permissions
         FROM users u
-        LEFT JOIN students s ON u.id = s.user_id
-        LEFT JOIN admins a ON u.id = a.user_id
+        LEFT JOIN students s ON u.id = s.id
+        LEFT JOIN admins a ON u.id = a.id
         WHERE u.email = $1
       `;
       queryParams = [emailOrPhone.toLowerCase()];
@@ -287,8 +290,8 @@ export const login = async (req, res, next) => {
           s.academic_year, s.enrollment_date,
           a.full_name as admin_name, a.role, a.permissions
         FROM users u
-        LEFT JOIN students s ON u.id = s.user_id
-        LEFT JOIN admins a ON u.id = a.user_id
+        LEFT JOIN students s ON u.id = s.id
+        LEFT JOIN admins a ON u.id = a.id
         WHERE u.phone = $1
       `;
       queryParams = [emailOrPhone];
@@ -403,7 +406,6 @@ export const login = async (req, res, next) => {
 export const getCurrentUser = async (req, res, next) => {
   try {
     const userId = req.user?.id; // Set by authentication middleware
-    // console.log('🔍 Fetching current user:', userId);
     
     if (!userId) {
       return res.status(401).json({
@@ -411,8 +413,6 @@ export const getCurrentUser = async (req, res, next) => {
         message: 'User not authenticated'
       });
     }
-
-    // console.log('📋 Getting current user:', userId);
 
     // Get fresh user data from database based on user type
     const userType = req.user?.user_type;
@@ -426,7 +426,7 @@ export const getCurrentUser = async (req, res, next) => {
           u.email_verified, u.phone_verified, u.is_active, u.created_at, u.updated_at,
           a.full_name, a.role, a.permissions
         FROM users u
-        LEFT JOIN admins a ON u.id = a.user_id
+        LEFT JOIN admins a ON u.id = a.id
         WHERE u.id = $1
       `;
     } else if (userType === 'student') {
@@ -438,7 +438,7 @@ export const getCurrentUser = async (req, res, next) => {
           s.school_id, s.board_id, s.medium_id, s.class_level, 
           s.academic_year, s.enrollment_date
         FROM users u
-        LEFT JOIN students s ON u.id = s.user_id
+        LEFT JOIN students s ON u.id = s.id
         WHERE u.id = $1
       `;
     } else {
@@ -452,14 +452,13 @@ export const getCurrentUser = async (req, res, next) => {
           s.academic_year, s.enrollment_date,
           a.full_name as admin_name, a.role, a.permissions
         FROM users u
-        LEFT JOIN students s ON u.id = s.user_id
-        LEFT JOIN admins a ON u.id = a.user_id
+        LEFT JOIN students s ON u.id = s.id
+        LEFT JOIN admins a ON u.id = a.id
         WHERE u.id = $1
       `;
     }
 
     const user = await db.queryOne(userQuery, queryParams);
-    // console.log('📋 Current user data:', user);
 
     if (!user) {
       return res.status(404).json({

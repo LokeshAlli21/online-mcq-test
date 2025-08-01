@@ -6,18 +6,19 @@ function Dashboard() {
   
   const userData = useSelector((state) => state.auth.userData);
 
+  if(userData?.user_type === 'admin') {
+    return <AdminPage />
+  }
+  if(userData?.user_type === 'student') {
+    return <StudentPage />
+  }
+
   return (
     <div className="flex flex-col items-center justify-center h-screen">
-      {userData?.user_type === 'admin' ? (
-        <AdminPage />
-      ) : userData?.user_type === 'student' ? (
-        <StudentPage />
-      ) : (
         <div className="text-center">
           <h1 className="text-2xl font-bold">Welcome to the Dashboard</h1>
           <p className="mt-4">Please select your role to proceed.</p>
         </div>
-      )}
     </div>
   )
 

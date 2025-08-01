@@ -29,11 +29,9 @@ function App() {
   }, [])
 
   return (
-    <div className="flex  max-w-screen w-full">
+    <div className="max-w-screen w-full">
       <ToastContainer position='top-right' />
-      <div className=" flex-1 flex-grow mx-auto">
-        <Outlet />
-      </div>
+      <Outlet />
     </div>
   );
 }

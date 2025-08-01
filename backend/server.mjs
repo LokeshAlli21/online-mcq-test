@@ -7,6 +7,8 @@ import { errorMiddleware } from './middlewares/errorMiddleware.js';
 // Importing routes
 import authRoutes from './routes/authRoutes.js';
 import instituteOptionsRoutes from './routes/instituteOptionsRoutes.js';
+import examRoutes from './routes/examRoutes.js';
+import bcrypt from 'bcrypt';
 
 dotenv.config();
 
@@ -22,6 +24,10 @@ app.use(express.json());
 app.use(loggerMiddleware);
 app.use(express.urlencoded({ extended: true }));
 
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash('12345678', saltRounds);
+    console.log('Hashed password for 12345678:', hashedPassword);
+
 // Routes
 app.get('/api/test', (req, res) => {
   console.log('✅ Backend test route hit!');
@@ -30,6 +36,7 @@ app.get('/api/test', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/institute-options', instituteOptionsRoutes);
+app.use('/api/exams', examRoutes);
 
 // Main route
 app.get('/', (req, res) => {

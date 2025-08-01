@@ -14,13 +14,11 @@ CREATE TABLE users (
 
 -- Admin-specific information
 CREATE TABLE admins (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     full_name VARCHAR(200) NOT NULL,
     role VARCHAR(50) DEFAULT 'admin',
     permissions JSONB DEFAULT '["create_tests", "manage_users", "view_reports"]',
-    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'),
-    UNIQUE(user_id)
+    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
 );
 
 -- Educational boards (CBSE, ICSE, State Boards, etc.)
@@ -59,8 +57,7 @@ CREATE TABLE schools (
 
 -- Student-specific information and profile
 CREATE TABLE students (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     full_name VARCHAR(200) NOT NULL,
     student_id VARCHAR(50),
     date_of_birth DATE,
@@ -72,7 +69,6 @@ CREATE TABLE students (
     academic_year VARCHAR(10),
     enrollment_date DATE DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::DATE, --CURRENT_DATE
     created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'),
-    UNIQUE(user_id),
     UNIQUE(student_id)
 );
 

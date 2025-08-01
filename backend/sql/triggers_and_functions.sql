@@ -212,13 +212,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to check if student is eligible for a test
+-- Updated function to check if student is eligible for a test
+-- Now uses student_id directly as it references users(id)
 CREATE OR REPLACE FUNCTION is_student_eligible_for_test(student_id_param INTEGER, test_id_param INTEGER)
 RETURNS BOOLEAN AS $$
 DECLARE
     student_rec RECORD;
     test_rec RECORD;
 BEGIN
+    -- Updated query: student_id_param now directly references users(id)
     SELECT s.class_level, s.board_id, s.medium_id, s.school_id
     INTO student_rec
     FROM students s
@@ -257,6 +259,75 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Updated function to get eligible exams for a student
+-- Now uses student_id directly as it references users(id)
+CREATE OR REPLACE FUNCTION get_student_eligible_exams(p_student_id INTEGER)
+RETURNS TABLE (
+    test_id INTEGER,
+    test_title VARCHAR(200),
+    category_name VARCHAR(100),
+    total_questions INTEGER,
+    total_marks DECIMAL(8,2),
+    time_limit_minutes INTEGER,
+    passing_percentage DECIMAL(5,2),
+    max_attempts INTEGER,
+    difficulty_summary TEXT,
+    is_active BOOLEAN,
+    created_at TIMESTAMP
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        t.id as test_id,
+        t.title as test_title,
+        c.name as category_name,
+        t.total_questions,
+        t.total_marks,
+        t.time_limit_minutes,
+        t.passing_percentage,
+        t.max_attempts,
+        CONCAT(
+            'Easy: ', COUNT(CASE WHEN q.difficulty_level = 'easy' THEN 1 END),
+            ', Medium: ', COUNT(CASE WHEN q.difficulty_level = 'medium' THEN 1 END),
+            ', Hard: ', COUNT(CASE WHEN q.difficulty_level = 'hard' THEN 1 END)
+        ) as difficulty_summary,
+        t.is_active,
+        t.created_at
+    FROM tests t
+    INNER JOIN categories c ON t.category_id = c.id
+    INNER JOIN students s ON s.id = p_student_id  -- Updated: direct reference to users(id)
+    LEFT JOIN questions q ON t.id = q.test_id
+    WHERE 
+        t.is_active = true
+        AND c.is_active = true
+        -- Check if student's class is in target_classes
+        AND (
+            t.target_classes IS NULL 
+            OR t.target_classes @> s.class_level::text::jsonb
+        )
+        -- Check if student's board is in target_boards (if specified)
+        AND (
+            t.target_boards IS NULL 
+            OR t.target_boards @> s.board_id::text::jsonb
+        )
+        -- Check if student's medium is in target_mediums (if specified)
+        AND (
+            t.target_mediums IS NULL 
+            OR t.target_mediums @> s.medium_id::text::jsonb
+        )
+        -- Check if student's school is in target_schools (if specified)
+        AND (
+            t.target_schools IS NULL 
+            OR s.school_id IS NULL
+            OR t.target_schools @> s.school_id::text::jsonb
+        )
+    GROUP BY t.id, t.title, c.name, t.total_questions, t.total_marks, 
+             t.time_limit_minutes, t.passing_percentage, t.max_attempts, 
+             t.is_active, t.created_at
+    ORDER BY t.created_at DESC;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Triggers
 CREATE TRIGGER users_updated_at
     BEFORE UPDATE ON users
@@ -265,6 +336,17 @@ CREATE TRIGGER users_updated_at
 
 CREATE TRIGGER tests_updated_at
     BEFORE UPDATE ON tests
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
+
+-- Add triggers for admins and students tables
+CREATE TRIGGER admins_updated_at
+    BEFORE UPDATE ON admins
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER students_updated_at
+    BEFORE UPDATE ON students  
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at();
 
