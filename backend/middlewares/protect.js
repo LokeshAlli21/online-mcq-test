@@ -10,7 +10,8 @@ export const protect = async (req, res, next) => {
   try {
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
-    
+    // console.log('🔒 Protect Middleware: Checking token', authHeader);
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         success: false,
@@ -31,8 +32,9 @@ export const protect = async (req, res, next) => {
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // console.log('🔒 JWT verification successful:', decoded);
     } catch (jwtError) {
-      console.warn('🔒 JWT verification failed:', jwtError.message);
+      // console.warn('🔒 JWT verification failed:', jwtError.message);
       
       let errorMessage = 'Invalid token';
       if (jwtError.name === 'TokenExpiredError') {
@@ -46,32 +48,54 @@ export const protect = async (req, res, next) => {
         message: errorMessage
       });
     }
-
+// debug
+    // console.log('🔒 Decoded token:', decoded);
     // Validate token payload
-    if (!decoded || !decoded.id || !decoded.user) {
+    if (!decoded || !decoded.id || !decoded.user_type) {
+      // console.warn('🔒 Invalid token payload:', decoded);
       return res.status(401).json({
         success: false,
         message: 'Invalid token payload'
       });
     }
 
-    // Validate user type (if needed)
-    if (decoded.user !== 'consultant') {
-      return res.status(403).json({
+    // Fetch user from database with role-specific information
+    let userQuery;
+    let userParams = [decoded.id];
+
+    if (decoded.user_type === 'admin') {
+      userQuery = `
+        SELECT 
+          u.id, u.email, u.phone, u.user_type, u.email_verified, 
+          u.phone_verified, u.is_active, u.created_at, u.updated_at,
+          a.full_name, a.role, a.permissions
+        FROM users u
+        LEFT JOIN admins a ON u.id = a.user_id
+        WHERE u.id = $1
+      `;
+    } else if (decoded.user_type === 'student') {
+      userQuery = `
+        SELECT 
+          u.id, u.email, u.phone, u.user_type, u.email_verified, 
+          u.phone_verified, u.is_active, u.created_at, u.updated_at,
+          s.full_name, s.student_id, s.date_of_birth, s.address, 
+          s.school_id, s.board_id, s.medium_id, s.class_level, 
+          s.academic_year, s.enrollment_date
+        FROM users u
+        LEFT JOIN students s ON u.id = s.user_id
+        WHERE u.id = $1
+      `;
+    } else {
+      console.warn('🔒 Invalid user type:', decoded.user_type)
+      console.log('🔒 User query:', userQuery);
+      return res.status(401).json({
         success: false,
-        message: 'Access denied. Invalid user type.'
+        message: 'Invalid user type'
       });
     }
 
-    // Fetch user from database
-    const userQuery = `
-      SELECT id, name, email, phone, role, status, status_for_delete, 
-             photo_url, created_at, access_fields, last_login
-      FROM users 
-      WHERE id = $1
-    `;
-
-    const user = await db.queryOne(userQuery, [decoded.id]);
+    const user = await db.queryOne(userQuery, userParams);
+    // console.log('🔒 User fetched from database:', user);
 
     if (!user) {
       return res.status(401).json({
@@ -81,58 +105,66 @@ export const protect = async (req, res, next) => {
     }
 
     // Check if user account is active
-    if (user.status !== 'active') {
-      const statusMessage = user.status === 'blocked' 
-        ? 'Account has been blocked' 
-        : 'Account is not active';
-      
+    if (!user.is_active) {
       return res.status(403).json({
         success: false,
-        message: statusMessage
+        message: 'Account has been deactivated'
       });
     }
 
-    // Check if user is not deleted
-    if (user.status_for_delete === 'deleted') {
-      return res.status(403).json({
-        success: false,
-        message: 'Account not found'
-      });
-    }
-
-    // Parse access_fields for easier use in controllers
-    let accessFields = [];
-    if (user.access_fields) {
+    // Parse permissions for admin users
+    let permissions = [];
+    if (user.user_type === 'admin' && user.permissions) {
       try {
-        if (typeof user.access_fields === 'string') {
-          const parsed = JSON.parse(user.access_fields);
-          accessFields = Array.isArray(parsed) ? parsed : [parsed];
-        } else if (Array.isArray(user.access_fields)) {
-          accessFields = user.access_fields;
-        } else if (typeof user.access_fields === 'object') {
-          accessFields = Object.values(user.access_fields);
+        if (typeof user.permissions === 'string') {
+          permissions = JSON.parse(user.permissions);
+        } else if (Array.isArray(user.permissions)) {
+          permissions = user.permissions;
         }
       } catch (error) {
-        console.warn('Failed to parse access_fields:', error);
-        accessFields = user.access_fields?.split(',').map(item => item.trim()) || [];
+        console.warn('Failed to parse admin permissions:', error);
+        permissions = [];
       }
     }
 
     // Attach user data to request object
     req.user = {
-      ...user,
-      access_fields: accessFields
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      user_type: user.user_type,
+      email_verified: user.email_verified,
+      phone_verified: user.phone_verified,
+      is_active: user.is_active,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+      full_name: user.full_name,
+      ...(user.user_type === 'admin' && {
+        role: user.role || 'admin',
+        permissions: permissions
+      }),
+      ...(user.user_type === 'student' && {
+        student_id: user.student_id,
+        date_of_birth: user.date_of_birth,
+        address: user.address,
+        school_id: user.school_id,
+        board_id: user.board_id,
+        medium_id: user.medium_id,
+        class_level: user.class_level,
+        academic_year: user.academic_year,
+        enrollment_date: user.enrollment_date
+      })
     };
 
-    // Optional: Add token info to request
+    // Add token info to request
     req.tokenData = {
       userId: decoded.id,
-      userType: decoded.user,
+      userType: decoded.user_type,
       iat: decoded.iat,
       exp: decoded.exp
     };
 
-    console.log('✅ User authenticated:', user.id);
+    console.log('✅ User authenticated:', user.id, user.user_type);
     next();
 
   } catch (error) {
@@ -145,9 +177,51 @@ export const protect = async (req, res, next) => {
 };
 
 /**
- * Optional middleware to check if user has specific role
+ * Middleware to check if user is admin
  */
-export const requireRole = (requiredRole) => {
+export const requireAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required'
+    });
+  }
+
+  if (req.user.user_type !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Admin access required.'
+    });
+  }
+
+  next();
+};
+
+/**
+ * Middleware to check if user is student
+ */
+export const requireStudent = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required'
+    });
+  }
+
+  if (req.user.user_type !== 'student') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Student access required.'
+    });
+  }
+
+  next();
+};
+
+/**
+ * Middleware to check if user has specific permission (for admins)
+ */
+export const requirePermission = (requiredPermission) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
@@ -156,10 +230,19 @@ export const requireRole = (requiredRole) => {
       });
     }
 
-    if (req.user.role !== requiredRole) {
+    if (req.user.user_type !== 'admin') {
       return res.status(403).json({
         success: false,
-        message: `Access denied. ${requiredRole} role required.`
+        message: 'Access denied. Admin access required.'
+      });
+    }
+
+    const userPermissions = req.user.permissions || [];
+    
+    if (!userPermissions.includes(requiredPermission)) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied. ${requiredPermission} permission required.`
       });
     }
 
@@ -168,33 +251,24 @@ export const requireRole = (requiredRole) => {
 };
 
 /**
- * Optional middleware to check if user has specific access to a feature
+ * Middleware to allow access to both admin and student users
  */
-export const requireAccess = (requiredAccess) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required'
-      });
-    }
+export const requireAuth = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required'
+    });
+  }
 
-    // Admin users have access to everything
-    if (req.user.role === 'admin') {
-      return next();
-    }
+  if (!['admin', 'student'].includes(req.user.user_type)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Invalid user type'
+    });
+  }
 
-    const userAccessFields = req.user.access_fields || [];
-    
-    if (!userAccessFields.includes(requiredAccess)) {
-      return res.status(403).json({
-        success: false,
-        message: `Access denied. ${requiredAccess} permission required.`
-      });
-    }
-
-    next();
-  };
+  next();
 };
 
 /**
@@ -218,36 +292,62 @@ export const optionalAuth = async (req, res, next) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
-      if (decoded && decoded.id && decoded.user === 'consultant') {
-        const userQuery = `
-          SELECT id, name, email, phone, role, status, status_for_delete, 
-                 photo_url, created_at, access_fields
-          FROM users 
-          WHERE id = $1 AND status = 'active' AND status_for_delete != 'deleted'
-        `;
-
-        const user = await db.queryOne(userQuery, [decoded.id]);
+      if (decoded && decoded.id && decoded.user_type) {
+        let userQuery;
         
-        if (user) {
-          // Parse access_fields
-          let accessFields = [];
-          if (user.access_fields) {
-            try {
-              if (typeof user.access_fields === 'string') {
-                const parsed = JSON.parse(user.access_fields);
-                accessFields = Array.isArray(parsed) ? parsed : [parsed];
-              } else if (Array.isArray(user.access_fields)) {
-                accessFields = user.access_fields;
-              }
-            } catch (error) {
-              accessFields = [];
-            }
-          }
+        if (decoded.user_type === 'admin') {
+          userQuery = `
+            SELECT 
+              u.id, u.email, u.phone, u.user_type, u.email_verified, 
+              u.phone_verified, u.is_active, u.created_at,
+              a.full_name, a.role, a.permissions
+            FROM users u
+            LEFT JOIN admins a ON u.id = a.user_id
+            WHERE u.id = $1 AND u.is_active = true
+          `;
+        } else if (decoded.user_type === 'student') {
+          userQuery = `
+            SELECT 
+              u.id, u.email, u.phone, u.user_type, u.email_verified, 
+              u.phone_verified, u.is_active, u.created_at,
+              s.full_name, s.student_id, s.class_level, s.board_id, s.medium_id
+            FROM users u
+            LEFT JOIN students s ON u.id = s.user_id
+            WHERE u.id = $1 AND u.is_active = true
+          `;
+        }
 
-          req.user = {
-            ...user,
-            access_fields: accessFields
-          };
+        if (userQuery) {
+          const user = await db.queryOne(userQuery, [decoded.id]);
+          
+          if (user) {
+            // Parse permissions for admin
+            let permissions = [];
+            if (user.user_type === 'admin' && user.permissions) {
+              try {
+                permissions = typeof user.permissions === 'string' 
+                  ? JSON.parse(user.permissions) 
+                  : user.permissions;
+              } catch (error) {
+                permissions = [];
+              }
+            }
+
+            req.user = {
+              id: user.id,
+              email: user.email,
+              phone: user.phone,
+              user_type: user.user_type,
+              full_name: user.full_name,
+              ...(user.user_type === 'admin' && { permissions }),
+              ...(user.user_type === 'student' && {
+                student_id: user.student_id,
+                class_level: user.class_level,
+                board_id: user.board_id,
+                medium_id: user.medium_id
+              })
+            };
+          }
         }
       }
     } catch (jwtError) {

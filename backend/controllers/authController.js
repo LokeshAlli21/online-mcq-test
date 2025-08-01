@@ -258,7 +258,7 @@ export const login = async (req, res, next) => {
       });
     }
 
-    // Build dynamic query to get user and student data
+    // Build dynamic query to get user data with both student and admin info
     let userQuery;
     let queryParams;
 
@@ -267,11 +267,13 @@ export const login = async (req, res, next) => {
         SELECT 
           u.id, u.email, u.phone, u.password_hash, u.user_type, 
           u.email_verified, u.phone_verified, u.is_active, u.created_at, u.updated_at,
-          s.full_name, s.student_id, s.date_of_birth, s.address, 
+          s.full_name as student_name, s.student_id, s.date_of_birth, s.address, 
           s.school_id, s.board_id, s.medium_id, s.class_level, 
-          s.academic_year, s.enrollment_date
+          s.academic_year, s.enrollment_date,
+          a.full_name as admin_name, a.role, a.permissions
         FROM users u
         LEFT JOIN students s ON u.id = s.user_id
+        LEFT JOIN admins a ON u.id = a.user_id
         WHERE u.email = $1
       `;
       queryParams = [emailOrPhone.toLowerCase()];
@@ -280,11 +282,13 @@ export const login = async (req, res, next) => {
         SELECT 
           u.id, u.email, u.phone, u.password_hash, u.user_type, 
           u.email_verified, u.phone_verified, u.is_active, u.created_at, u.updated_at,
-          s.full_name, s.student_id, s.date_of_birth, s.address, 
+          s.full_name as student_name, s.student_id, s.date_of_birth, s.address, 
           s.school_id, s.board_id, s.medium_id, s.class_level, 
-          s.academic_year, s.enrollment_date
+          s.academic_year, s.enrollment_date,
+          a.full_name as admin_name, a.role, a.permissions
         FROM users u
         LEFT JOIN students s ON u.id = s.user_id
+        LEFT JOIN admins a ON u.id = a.user_id
         WHERE u.phone = $1
       `;
       queryParams = [emailOrPhone];
@@ -321,7 +325,7 @@ export const login = async (req, res, next) => {
     const token = generateToken(user.id, user.user_type);
     console.log('✅ Token generated for user:', user.id);
 
-    // Update last login timestamp (add this column if needed)
+    // Update last login timestamp
     try {
       await db.query(
         'UPDATE users SET updated_at = NOW() WHERE id = $1',
@@ -331,31 +335,57 @@ export const login = async (req, res, next) => {
       console.warn('Failed to update login timestamp:', error);
     }
 
+    // Prepare user response based on user type
+    const userResponse = {
+      id: user.id,
+      name: user.user_type === 'student' ? user.student_name : user.admin_name,
+      email: user.email,
+      phone: user.phone,
+      user_type: user.user_type,
+      is_active: user.is_active,
+      email_verified: user.email_verified,
+      phone_verified: user.phone_verified,
+      token: token,
+      created_at: user.created_at
+    };
+
+    // Add role-specific fields
+    if (user.user_type === 'student') {
+      // Student-specific fields
+      userResponse.student_id = user.student_id;
+      userResponse.date_of_birth = user.date_of_birth;
+      userResponse.address = user.address;
+      userResponse.school_id = user.school_id;
+      userResponse.board_id = user.board_id;
+      userResponse.medium_id = user.medium_id;
+      userResponse.class_level = user.class_level;
+      userResponse.academic_year = user.academic_year;
+      userResponse.enrollment_date = user.enrollment_date;
+    } else if (user.user_type === 'admin') {
+      // Admin-specific fields
+      userResponse.admin_role = user.role;
+      
+      // Parse permissions
+      let permissions = [];
+      if (user.permissions) {
+        try {
+          if (typeof user.permissions === 'string') {
+            permissions = JSON.parse(user.permissions);
+          } else if (Array.isArray(user.permissions)) {
+            permissions = user.permissions;
+          }
+        } catch (error) {
+          console.warn('Failed to parse admin permissions:', error);
+          permissions = [];
+        }
+      }
+      userResponse.permissions = permissions;
+    }
+
     res.json({
       success: true,
       message: 'Login successful',
-      user: {
-        id: user.id,
-        name: user.full_name,
-        email: user.email,
-        phone: user.phone,
-        user_type: user.user_type,
-        is_active: user.is_active,
-        email_verified: user.email_verified,
-        phone_verified: user.phone_verified,
-        token: token,
-        created_at: user.created_at,
-        // Student-specific fields (will be null for admin users)
-        student_id: user.student_id,
-        date_of_birth: user.date_of_birth,
-        address: user.address,
-        school_id: user.school_id,
-        board_id: user.board_id,
-        medium_id: user.medium_id,
-        class_level: user.class_level,
-        academic_year: user.academic_year,
-        enrollment_date: user.enrollment_date
-      }
+      user: userResponse
     });
 
   } catch (error) {
@@ -373,7 +403,8 @@ export const login = async (req, res, next) => {
 export const getCurrentUser = async (req, res, next) => {
   try {
     const userId = req.user?.id; // Set by authentication middleware
-
+    // console.log('🔍 Fetching current user:', userId);
+    
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -381,24 +412,54 @@ export const getCurrentUser = async (req, res, next) => {
       });
     }
 
-    console.log('📋 Getting current user:', userId);
+    // console.log('📋 Getting current user:', userId);
 
-    // Get fresh user data from database
-    const userQuery = `
-      SELECT 
-        u.id, u.email, u.phone, u.user_type, 
-        u.email_verified, u.phone_verified, u.is_active, u.created_at, u.updated_at,
-        s.full_name, s.student_id, s.date_of_birth, s.address, 
-        s.school_id, s.board_id, s.medium_id, s.class_level, 
-        s.academic_year, s.enrollment_date,
-        a.full_name as admin_name, a.role as admin_role, a.permissions
-      FROM users u
-      LEFT JOIN students s ON u.id = s.user_id
-      LEFT JOIN admins a ON u.id = a.user_id
-      WHERE u.id = $1
-    `;
+    // Get fresh user data from database based on user type
+    const userType = req.user?.user_type;
+    let userQuery;
+    let queryParams = [userId];
 
-    const user = await db.queryOne(userQuery, [userId]);
+    if (userType === 'admin') {
+      userQuery = `
+        SELECT 
+          u.id, u.email, u.phone, u.password_hash, u.user_type, 
+          u.email_verified, u.phone_verified, u.is_active, u.created_at, u.updated_at,
+          a.full_name, a.role, a.permissions
+        FROM users u
+        LEFT JOIN admins a ON u.id = a.user_id
+        WHERE u.id = $1
+      `;
+    } else if (userType === 'student') {
+      userQuery = `
+        SELECT 
+          u.id, u.email, u.phone, u.password_hash, u.user_type, 
+          u.email_verified, u.phone_verified, u.is_active, u.created_at, u.updated_at,
+          s.full_name, s.student_id, s.date_of_birth, s.address, 
+          s.school_id, s.board_id, s.medium_id, s.class_level, 
+          s.academic_year, s.enrollment_date
+        FROM users u
+        LEFT JOIN students s ON u.id = s.user_id
+        WHERE u.id = $1
+      `;
+    } else {
+      // Fallback query if user_type is not clear
+      userQuery = `
+        SELECT 
+          u.id, u.email, u.phone, u.password_hash, u.user_type, 
+          u.email_verified, u.phone_verified, u.is_active, u.created_at, u.updated_at,
+          s.full_name as student_name, s.student_id, s.date_of_birth, s.address, 
+          s.school_id, s.board_id, s.medium_id, s.class_level, 
+          s.academic_year, s.enrollment_date,
+          a.full_name as admin_name, a.role, a.permissions
+        FROM users u
+        LEFT JOIN students s ON u.id = s.user_id
+        LEFT JOIN admins a ON u.id = a.user_id
+        WHERE u.id = $1
+      `;
+    }
+
+    const user = await db.queryOne(userQuery, queryParams);
+    // console.log('📋 Current user data:', user);
 
     if (!user) {
       return res.status(404).json({
@@ -414,9 +475,10 @@ export const getCurrentUser = async (req, res, next) => {
       });
     }
 
-    // Prepare response based on user type
+    // Prepare response data (similar to login response structure)
     const userResponse = {
       id: user.id,
+      name: user.full_name || user.student_name || user.admin_name,
       email: user.email,
       phone: user.phone,
       user_type: user.user_type,
@@ -426,9 +488,9 @@ export const getCurrentUser = async (req, res, next) => {
       created_at: user.created_at
     };
 
-    // Add role-specific data
+    // Add role-specific data based on user type
     if (user.user_type === 'student') {
-      userResponse.name = user.full_name;
+      // Add student-specific fields
       userResponse.student_id = user.student_id;
       userResponse.date_of_birth = user.date_of_birth;
       userResponse.address = user.address;
@@ -439,15 +501,24 @@ export const getCurrentUser = async (req, res, next) => {
       userResponse.academic_year = user.academic_year;
       userResponse.enrollment_date = user.enrollment_date;
     } else if (user.user_type === 'admin') {
-      userResponse.name = user.admin_name;
-      userResponse.admin_role = user.admin_role;
+      // Add admin-specific fields
+      userResponse.admin_role = user.role;
+      
       // Parse permissions if they exist
-      try {
-        userResponse.permissions = user.permissions ? JSON.parse(user.permissions) : [];
-      } catch (error) {
-        console.warn('Failed to parse admin permissions:', error);
-        userResponse.permissions = [];
+      let permissions = [];
+      if (user.permissions) {
+        try {
+          if (typeof user.permissions === 'string') {
+            permissions = JSON.parse(user.permissions);
+          } else if (Array.isArray(user.permissions)) {
+            permissions = user.permissions;
+          }
+        } catch (error) {
+          console.warn('Failed to parse admin permissions:', error);
+          permissions = [];
+        }
       }
+      userResponse.permissions = permissions;
     }
 
     res.json({
@@ -457,41 +528,6 @@ export const getCurrentUser = async (req, res, next) => {
 
   } catch (error) {
     console.error('💥 GetCurrentUser Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal Server Error'
-    });
-  }
-};
-
-/**
- * Logout User (optional - mainly for clearing server-side sessions)
- */
-export const logout = async (req, res, next) => {
-  try {
-    const userId = req.user?.id;
-
-    if (userId) {
-      console.log('👋 User logged out:', userId);
-      
-      // Update logout timestamp (you might want to add a last_logout column)
-      try {
-        await db.query(
-          'UPDATE users SET updated_at = NOW() WHERE id = $1',
-          [userId]
-        );
-      } catch (error) {
-        console.warn('Failed to update logout timestamp:', error);
-      }
-    }
-
-    res.json({
-      success: true,
-      message: 'Logged out successfully'
-    });
-
-  } catch (error) {
-    console.error('💥 Logout Error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal Server Error'
