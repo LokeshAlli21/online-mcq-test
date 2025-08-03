@@ -62,26 +62,6 @@ router.get('/get', async (req, res) => {
       db.queryOne('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_active = true) as active FROM schools')
     ]);
 
-    // Group schools by board for better organization
-    const schoolsByBoard = {};
-    schoolsResult.forEach(school => {
-      const boardKey = school.board_id;
-      if (!schoolsByBoard[boardKey]) {
-        schoolsByBoard[boardKey] = {
-          board_id: school.board_id,
-          board_name: school.board_name,
-          board_full_name: school.board_full_name,
-          schools: []
-        };
-      }
-      
-      // Remove board info from individual school object to avoid redundancy
-      const { board_name, board_full_name, ...schoolData } = school;
-      schoolsByBoard[boardKey].schools.push(schoolData);
-    });
-
-    // Convert schools by board object to array
-    const schoolsGroupedByBoard = Object.values(schoolsByBoard);
 
     // Prepare the complete response
     const response = {
@@ -108,8 +88,7 @@ router.get('/get', async (req, res) => {
       data: {
         boards: boardsResult,
         mediums: mediumsResult,
-        schools: schoolsResult,
-        schools_grouped_by_board: schoolsGroupedByBoard
+        schools: schoolsResult
       }
     };
 

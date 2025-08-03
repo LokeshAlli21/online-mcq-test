@@ -85,7 +85,7 @@ const SignUp = () => {
     password: '', confirmPassword: ''
   });
 
-  const [instituteOptions, setInstituteOptions] = useState({ boards: [], mediums: [], schools: [], schoolsGroupedByBoard: [] });
+  const [instituteOptions, setInstituteOptions] = useState({ boards: [], mediums: [], schools: [] });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -95,12 +95,12 @@ const SignUp = () => {
     const fetchData = async () => {
       try {
         const data = await databaseService.getInstituteOptions();
+        console.log("Fetched institute options:", data);
         if (data?.data) {
           setInstituteOptions({
             boards: data.data.boards || [],
             mediums: data.data.mediums || [],
-            schools: data.data.schools || [],
-            schoolsGroupedByBoard: data.data.schools_grouped_by_board || []
+            schools: data.data.schools || []
           });
         }
       } catch (error) {
@@ -130,11 +130,10 @@ const SignUp = () => {
     return [`${currentYear}-${currentYear + 1}`, `${currentYear - 1}-${currentYear}`, `${currentYear + 1}-${currentYear + 2}`];
   }, []);
 
+  // Show all schools without filtering by board
   const filteredSchools = useMemo(() => {
-    if (!formData.board_id) return [];
-    const boardGroup = instituteOptions.schoolsGroupedByBoard.find(group => group.board_id === parseInt(formData.board_id));
-    return boardGroup?.schools || [];
-  }, [formData.board_id, instituteOptions.schoolsGroupedByBoard]);
+    return instituteOptions.schools;
+  }, [instituteOptions.schools]);
 
   // Memoized step configuration
   const stepConfigurations = useMemo(() => {
@@ -161,8 +160,8 @@ const SignUp = () => {
             options: instituteOptions.boards.map(b => ({ value: b.id, label: `${b.name} - ${b.full_name}` })) },
           { label: 'Medium', name: 'medium_id', icon: Globe, placeholder: 'Select Medium',
             options: instituteOptions.mediums.map(m => ({ value: m.id, label: m.name })) },
-          { label: 'School', name: 'school_id', icon: School, placeholder: !formData.board_id ? 'Select Board First' : 'Select School',
-            disabled: !formData.board_id, options: filteredSchools.map(s => ({ value: s.id, label: s.name })) },
+          { label: 'School', name: 'school_id', icon: School, placeholder: 'Select School',
+            options: filteredSchools.map(s => ({ value: s.id, label: s.name })) },
           { label: 'Class', name: 'class_level', icon: BookOpen, placeholder: 'Select Class',
             options: Array.from({ length: 10 }, (_, i) => ({ value: i + 1, label: `Class ${i + 1}` })) },
           { label: 'Academic Year', name: 'academic_year', icon: Calendar, placeholder: 'Select Academic Year',
@@ -179,7 +178,7 @@ const SignUp = () => {
         ]
       }
     ];
-  }, [instituteOptions.boards, instituteOptions.mediums, filteredSchools, academicYearOptions, formData.board_id]);
+  }, [instituteOptions.boards, instituteOptions.mediums, filteredSchools, academicYearOptions]);
 
   const validateStep = useCallback((step) => {
     const newErrors = {};
@@ -248,11 +247,11 @@ const SignUp = () => {
       }
     }
 
-    // Reset school selection when board changes
-    if (name === 'board_id' && value !== formData.board_id) {
-      setFormData(prev => ({ ...prev, school_id: '' }));
-    }
-  }, [errors, formData.password, formData.confirmPassword, formData.board_id]);
+    // No need to reset school selection when board changes since schools are not filtered by board
+    // if (name === 'board_id' && value !== formData.board_id) {
+    //   setFormData(prev => ({ ...prev, school_id: '' }));
+    // }
+  }, [errors, formData.password, formData.confirmPassword, formData.board_id, validatePassword]);
 
   const handleNext = useCallback(() => { 
     if (validateStep(currentStep)) setCurrentStep(prev => Math.min(prev + 1, totalSteps)); 
