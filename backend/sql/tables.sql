@@ -55,6 +55,10 @@ CREATE TABLE schools (
     created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
 );
 
+ALTER TABLE schools
+ALTER COLUMN board_id DROP NOT NULL;
+
+
 -- Student-specific information and profile
 CREATE TABLE students (
     id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
