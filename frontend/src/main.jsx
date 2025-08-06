@@ -7,7 +7,7 @@ import AuthLayout from './auth/AuthLayout.jsx'
 import store from "./store/store.js"
 import { Provider } from "react-redux"
 
-import {NotFoundPage , Login, Dashboard , SignUp} from './pages/index.js'
+import {NotFoundPage , Login, Dashboard , SignUp, CreateExam, ManageStudents, AnalyticsPage, AddQuestions} from './pages/index.js'
 
 const router = createBrowserRouter([
   {
@@ -35,14 +35,54 @@ const router = createBrowserRouter([
            <Dashboard />
          </AuthLayout>,
       },
-      // {
-      //   path: "/promoters",
-      //   element: 
-      //   <AuthLayout authentication>
-      //     {" "}
-      //     <PromotersPage />
-      //    </AuthLayout>, 
-      // },
+      {
+        path: "/admin/create-exam",
+        element: 
+        <AuthLayout authentication>
+          {" "}
+          <CreateExam viewOnly={false} />
+         </AuthLayout>, 
+      },
+      {
+        path: "/admin/exam/:id/edit",
+        element: 
+        <AuthLayout authentication>
+          {" "}
+          <CreateExam viewOnly={false} />
+         </AuthLayout>, 
+      },
+      {
+        path: "/admin/exam/:id/view",
+        element: 
+        <AuthLayout authentication>
+          {" "}
+          <CreateExam viewOnly={true} />
+         </AuthLayout>, 
+      },
+      {
+        path: "/admin/create-exam/add-questions/:id",
+        element: 
+        <AuthLayout authentication>
+          {" "}
+          <AddQuestions />
+         </AuthLayout>, 
+      },
+      {
+        path: "/admin/manage-students",
+        element:
+        <AuthLayout authentication>
+          {" "}
+          <ManageStudents />
+         </AuthLayout>,
+      },
+      {
+        path: "/admin/analytics",
+        element: 
+        <AuthLayout authentication>
+          {" "}
+          <AnalyticsPage />
+         </AuthLayout>, 
+      },
     ],
     errorElement: <NotFoundPage />
   },

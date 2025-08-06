@@ -100,15 +100,19 @@ CREATE TABLE tests (
     negative_marking BOOLEAN DEFAULT false,
     negative_marks_per_wrong DECIMAL(5,2) DEFAULT 0.00 CHECK (negative_marks_per_wrong >= 0),
     -- Eligibility criteria
-    target_boards JSONB,
-    target_mediums JSONB,
-    target_classes JSONB NOT NULL,
-    target_schools JSONB,
+    target_boards JSONB, -- leave empty for all boards
+    target_mediums JSONB, -- leave empty for all mediums
+    target_classes JSONB NOT NULL, -- leave empty for all classes
+    target_schools JSONB, -- leave empty for all schools
     is_active BOOLEAN DEFAULT true,
     created_by INTEGER NOT NULL REFERENCES admins(id),
     created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'),
     updated_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
 );
+
+ALTER TABLE tests
+ALTER COLUMN total_questions DROP NOT NULL;
+ALTER TABLE tests DROP CONSTRAINT IF EXISTS tests_total_questions_check;
 
 -- Questions with individual marks (Enhanced marking system)
 CREATE TABLE questions (

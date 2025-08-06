@@ -68,6 +68,8 @@ export const signup = async (req, res, next) => {
 
     const existingUser = await db.queryOne(existingUserQuery, [email.toLowerCase(), phone]);
 
+    // console.log('Existing user check:', existingUser);
+
     if (existingUser) {
       const conflictField = existingUser.email === email.toLowerCase() ? 'email' : 'phone';
       return res.status(409).json({

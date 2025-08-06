@@ -65,6 +65,7 @@ async signup(signupData) {
     });
 
     const data = await response.json();
+    // console.log("data at signup service in auth.js :: data:", data);
 
     if (!response.ok) {
       toast.error("🚫 Signup failed. Please try again.");
