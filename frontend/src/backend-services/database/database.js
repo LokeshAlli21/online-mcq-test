@@ -147,9 +147,36 @@ class DatabaseService {
     }
   }
 
+  async updateQuestion(id, data) {
+    try {
+      const response = await authenticatedFetch(`${this.baseUrl}/api/exams/admin/update-question/${id}`, {
+        method: "PUT",
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      console.error("Error updating question:", error);
+      throw error;
+    }
+  }
+
+  async deleteQuestion(id) {
+    try {
+      const response = await authenticatedFetch(`${this.baseUrl}/api/exams/admin/delete-question/${id}`, {
+        method: "DELETE",
+        headers: this.getAuthHeaders(),
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      console.error("Error deleting question:", error);
+      throw error;
+    }
+  }
+
   async getQuestionsByTestId(testId) {
     try {
-      const response = await authenticatedFetch(`${this.baseUrl}/api/exams/admin/get-questions-by-test-id/${testId}`, {
+      const response = await authenticatedFetch(`${this.baseUrl}/api/exams/admin/get-questions-by-test-id/${testId}?include_answers=true`, {
         method: "GET",
         headers: this.getAuthHeaders(),
       });

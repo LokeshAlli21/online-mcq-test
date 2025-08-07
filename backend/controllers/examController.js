@@ -172,6 +172,8 @@ export const addNewQuestion = async (req, res) => {
       difficulty_level = 'medium'
     } = req.body;
 
+    // console.log('Adding new question with data:', req.body);
+
     // Validation
     if (!test_id) {
       return res.status(400).json({
@@ -187,14 +189,20 @@ export const addNewQuestion = async (req, res) => {
       });
     }
 
-    if (!Array.isArray(options) || options.length < 2 || options.length > 6) {
+    // Ensure options is an array
+    const optionsArray = Array.isArray(options) ? options : [];
+    
+    if (optionsArray.length < 2 || optionsArray.length > 6) {
       return res.status(400).json({
         success: false,
         message: 'Options must be an array with 2-6 choices'
       });
     }
 
-    if (!Array.isArray(correct_answers) || correct_answers.length === 0) {
+    // Ensure correct_answers is an array
+    const correctAnswersArray = Array.isArray(correct_answers) ? correct_answers : [];
+    
+    if (correctAnswersArray.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'At least one correct answer is required'
@@ -202,8 +210,8 @@ export const addNewQuestion = async (req, res) => {
     }
 
     // Validate correct answers indices
-    const maxIndex = options.length - 1;
-    const invalidAnswers = correct_answers.filter(idx => idx < 0 || idx > maxIndex);
+    const maxIndex = optionsArray.length - 1;
+    const invalidAnswers = correctAnswersArray.filter(idx => idx < 0 || idx > maxIndex);
     if (invalidAnswers.length > 0) {
       return res.status(400).json({
         success: false,
@@ -212,7 +220,7 @@ export const addNewQuestion = async (req, res) => {
     }
 
     // For single choice, only one correct answer allowed
-    if (question_type === 'single_choice' && correct_answers.length > 1) {
+    if (question_type === 'single_choice' && correctAnswersArray.length > 1) {
       return res.status(400).json({
         success: false,
         message: 'Single choice questions can have only one correct answer'
@@ -244,6 +252,12 @@ export const addNewQuestion = async (req, res) => {
     );
     const question_order = parseInt(lastOrder.max_order) + 1;
 
+    // Debug logging
+    // console.log('Options before stringify:', optionsArray);
+    // console.log('Correct answers before stringify:', correctAnswersArray);
+    // console.log('Options stringified:', JSON.stringify(optionsArray));
+    // console.log('Correct answers stringified:', JSON.stringify(correctAnswersArray));
+
     // Create the question using transaction
     const result = await db.transaction(async (client) => {
       // Insert question
@@ -256,9 +270,9 @@ export const addNewQuestion = async (req, res) => {
       `, [
         test_id,
         question_text.trim(),
-        JSON.stringify(options),
+        JSON.stringify(optionsArray),
         question_type,
-        JSON.stringify(correct_answers),
+        JSON.stringify(correctAnswersArray),
         marks,
         negative_marks,
         explanation.trim() || null,
@@ -280,12 +294,54 @@ export const addNewQuestion = async (req, res) => {
       return newQuestion.rows[0];
     });
 
-    // Parse JSON fields for response
+    // console.log('Raw result from DB:', result);
+    // console.log('Raw result.options:', result.options);
+    // console.log('Type of result.options:', typeof result.options);
+
+    // Helper function to safely parse JSON or handle arrays/strings
+    const safeParseArray = (data, fieldName = 'field') => {
+      console.log(`Parsing ${fieldName}:`, data, 'Type:', typeof data);
+      
+      if (Array.isArray(data)) {
+        console.log(`${fieldName} is already an array:`, data);
+        return data;
+      }
+      
+      if (typeof data === 'string') {
+        try {
+          const parsed = JSON.parse(data);
+          // console.log(`${fieldName} parsed from JSON string:`, parsed);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch (error) {
+          // console.log(`${fieldName} JSON parse failed, trying comma split:`, error.message);
+          // Fallback to comma-split if it looks like a comma-separated string
+          if (data.includes(',')) {
+            const split = data.split(',').map(item => item.trim());
+            // console.log(`${fieldName} split by comma:`, split);
+            return split;
+          }
+          // console.log(`${fieldName} returning as single item array:`, [data]);
+          return [data];
+        }
+      }
+      
+      if (typeof data === 'object' && data !== null) {
+        // console.log(`${fieldName} is object, converting to array:`, [data]);
+        return [data];
+      }
+      
+      // console.log(`${fieldName} defaulting to empty array`);
+      return [];
+    };
+
+    // Parse JSON fields for response with safe parsing
     const formattedQuestion = {
       ...result,
-      options: JSON.parse(result.options),
-      correct_answers: JSON.parse(result.correct_answers)
+      options: safeParseArray(result.options, 'options'),
+      correct_answers: safeParseArray(result.correct_answers, 'correct_answers')
     };
+
+    // console.log('Formatted question:', formattedQuestion);
 
     res.status(201).json({
       success: true,
@@ -295,12 +351,496 @@ export const addNewQuestion = async (req, res) => {
 
   } catch (error) {
     console.error('Error adding question:', error);
+    console.error('Error stack:', error.stack);
     
     // Handle unique constraint violation (duplicate question_order)
     if (error.code === '23505') {
       return res.status(409).json({
         success: false,
         message: 'Question order conflict. Please try again.'
+      });
+    }
+
+    // Handle JSON parsing errors specifically
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid data format. Please check your options and correct_answers arrays.',
+        error: error.message
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+export const updateQuestion = async (req, res) => {
+  try {
+    const { id: question_id } = req.params;
+    const {
+      question_text,
+      options,
+      question_type,
+      correct_answers,
+      marks,
+      negative_marks,
+      explanation,
+      difficulty_level
+    } = req.body;
+
+    // console.log('Updating question with ID:', question_id);
+    // console.log('Update data:', req.body);
+
+    // Validation - question_id is required
+    if (!question_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Question ID is required'
+      });
+    }
+
+    // Get authenticated user
+    const updated_by = req.user?.id || req.body.updated_by;
+    if (!updated_by) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Check if question exists
+    const existingQuestion = await db.findById('questions', question_id);
+    if (!existingQuestion) {
+      return res.status(404).json({
+        success: false,
+        message: 'Question not found'
+      });
+    }
+
+    // Build dynamic update query based on provided fields
+    const updateFields = [];
+    const updateValues = [];
+    let paramCount = 1;
+
+    // Question text validation and update
+    if (question_text !== undefined) {
+      if (!question_text.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Question text cannot be empty'
+        });
+      }
+      updateFields.push(`question_text = $${paramCount}`);
+      updateValues.push(question_text.trim());
+      paramCount++;
+    }
+
+    // Options validation and update
+    if (options !== undefined) {
+      const optionsArray = Array.isArray(options) ? options : [];
+      
+      if (optionsArray.length < 2 || optionsArray.length > 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Options must be an array with 2-6 choices'
+        });
+      }
+
+      console.log('Options before stringify:', optionsArray);
+      updateFields.push(`options = $${paramCount}`);
+      updateValues.push(JSON.stringify(optionsArray));
+      paramCount++;
+    }
+
+    // Question type update
+    if (question_type !== undefined) {
+      updateFields.push(`question_type = $${paramCount}`);
+      updateValues.push(question_type);
+      paramCount++;
+    }
+
+    // Correct answers validation and update
+    if (correct_answers !== undefined) {
+      const correctAnswersArray = Array.isArray(correct_answers) ? correct_answers : [];
+      
+      if (correctAnswersArray.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'At least one correct answer is required'
+        });
+      }
+
+      // Get options length for validation
+      let optionsLength;
+      if (options !== undefined) {
+        optionsLength = Array.isArray(options) ? options.length : 0;
+      } else {
+        // Get current options length from existing question
+        const currentOptions = typeof existingQuestion.options === 'string' 
+          ? JSON.parse(existingQuestion.options) 
+          : existingQuestion.options;
+        optionsLength = Array.isArray(currentOptions) ? currentOptions.length : 0;
+      }
+
+      // Validate correct answers indices
+      const maxIndex = optionsLength - 1;
+      const invalidAnswers = correctAnswersArray.filter(idx => idx < 0 || idx > maxIndex);
+      if (invalidAnswers.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid correct answer indices. Must be between 0 and ${maxIndex}`
+        });
+      }
+
+      // For single choice, only one correct answer allowed
+      const currentQuestionType = question_type !== undefined ? question_type : existingQuestion.question_type;
+      if (currentQuestionType === 'single_choice' && correctAnswersArray.length > 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Single choice questions can have only one correct answer'
+        });
+      }
+
+      console.log('Correct answers before stringify:', correctAnswersArray);
+      updateFields.push(`correct_answers = $${paramCount}`);
+      updateValues.push(JSON.stringify(correctAnswersArray));
+      paramCount++;
+    }
+
+    // Marks update
+    if (marks !== undefined) {
+      updateFields.push(`marks = $${paramCount}`);
+      updateValues.push(marks);
+      paramCount++;
+    }
+
+    // Negative marks update
+    if (negative_marks !== undefined) {
+      updateFields.push(`negative_marks = $${paramCount}`);
+      updateValues.push(negative_marks);
+      paramCount++;
+    }
+
+    // Explanation update
+    if (explanation !== undefined) {
+      updateFields.push(`explanation = $${paramCount}`);
+      updateValues.push(explanation.trim() || null);
+      paramCount++;
+    }
+
+    // Difficulty level update
+    if (difficulty_level !== undefined) {
+      updateFields.push(`difficulty_level = $${paramCount}`);
+      updateValues.push(difficulty_level);
+      paramCount++;
+    }
+
+    // Add updated_by and updated_at
+    // updateFields.push(`updated_by = $${paramCount}`);
+    // updateValues.push(updated_by);
+    // paramCount++;
+
+    // updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+
+    // If no fields to update
+    if (updateFields.length === 2) { // Only updated_by and updated_at
+      return res.status(400).json({
+        success: false,
+        message: 'No fields to update'
+      });
+    }
+
+    // Add question_id as the last parameter for WHERE clause
+    updateValues.push(question_id);
+
+    // Create the update query using transaction
+    const result = await db.transaction(async (client) => {
+      // Update question
+      const updateQuery = `
+        UPDATE questions 
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramCount}
+        RETURNING *
+      `;
+
+      console.log('Update query:', updateQuery);
+      console.log('Update values:', updateValues);
+
+      const updatedQuestion = await client.query(updateQuery, updateValues);
+
+      if (updatedQuestion.rows.length === 0) {
+        throw new Error('Question not found or update failed');
+      }
+
+      // Update test statistics if marks were changed
+      if (marks !== undefined) {
+        await client.query(`
+          UPDATE tests 
+          SET 
+            total_marks = (SELECT COALESCE(SUM(marks), 0) FROM questions WHERE test_id = $1),
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+        `, [existingQuestion.test_id]);
+      }
+
+      return updatedQuestion.rows[0];
+    });
+
+    // console.log('Raw result from DB:', result);
+    // console.log('Raw result.options:', result.options);
+    // console.log('Type of result.options:', typeof result.options);
+
+    // Helper function to safely parse JSON or handle arrays/strings (same as addNewQuestion)
+    const safeParseArray = (data, fieldName = 'field') => {
+      console.log(`Parsing ${fieldName}:`, data, 'Type:', typeof data);
+      
+      if (Array.isArray(data)) {
+        console.log(`${fieldName} is already an array:`, data);
+        return data;
+      }
+      
+      if (typeof data === 'string') {
+        try {
+          const parsed = JSON.parse(data);
+          console.log(`${fieldName} parsed from JSON string:`, parsed);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch (error) {
+          console.log(`${fieldName} JSON parse failed, trying comma split:`, error.message);
+          // Fallback to comma-split if it looks like a comma-separated string
+          if (data.includes(',')) {
+            const split = data.split(',').map(item => item.trim());
+            console.log(`${fieldName} split by comma:`, split);
+            return split;
+          }
+          console.log(`${fieldName} returning as single item array:`, [data]);
+          return [data];
+        }
+      }
+      
+      if (typeof data === 'object' && data !== null) {
+        console.log(`${fieldName} is object, converting to array:`, [data]);
+        return [data];
+      }
+      
+      console.log(`${fieldName} defaulting to empty array`);
+      return [];
+    };
+
+    // Parse JSON fields for response with safe parsing
+    const formattedQuestion = {
+      ...result,
+      options: safeParseArray(result.options, 'options'),
+      correct_answers: safeParseArray(result.correct_answers, 'correct_answers')
+    };
+
+    console.log('Formatted question:', formattedQuestion);
+
+    res.status(200).json({
+      success: true,
+      message: 'Question updated successfully',
+      data: formattedQuestion
+    });
+
+  } catch (error) {
+    console.error('Error updating question:', error);
+    console.error('Error stack:', error.stack);
+
+    // Handle JSON parsing errors specifically
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid data format. Please check your options and correct_answers arrays.',
+        error: error.message
+      });
+    }
+
+    // Handle question not found in transaction
+    if (error.message === 'Question not found or update failed') {
+      return res.status(404).json({
+        success: false,
+        message: 'Question not found'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+export const deleteQuestion = async (req, res) => {
+  try {
+    const { id: question_id } = req.params;
+
+    console.log('Deleting question with ID:', question_id);
+
+    // Validation - question_id is required
+    if (!question_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Question ID is required'
+      });
+    }
+
+    // Get authenticated user
+    const deleted_by = req.user?.id || req.body.deleted_by;
+    if (!deleted_by) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Check if question exists and get its details
+    const existingQuestion = await db.findById('questions', question_id);
+    if (!existingQuestion) {
+      return res.status(404).json({
+        success: false,
+        message: 'Question not found'
+      });
+    }
+
+    console.log('Found question to delete:', existingQuestion);
+
+    // Store test_id and question_order for later use
+    const test_id = existingQuestion.test_id;
+    const question_order = existingQuestion.question_order;
+
+    // Check if there are any student responses for this question
+    const hasResponses = await db.queryOne(
+      'SELECT COUNT(*) as response_count FROM student_responses WHERE question_id = $1',
+      [question_id]
+    );
+
+    if (parseInt(hasResponses.response_count) > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Cannot delete question. Students have already responded to this question.',
+        data: {
+          response_count: parseInt(hasResponses.response_count)
+        }
+      });
+    }
+
+    // Delete question using transaction
+    const result = await db.transaction(async (client) => {
+      // Delete the question
+      const deletedQuestion = await client.query(
+        'DELETE FROM questions WHERE id = $1 RETURNING *',
+        [question_id]
+      );
+
+      if (deletedQuestion.rows.length === 0) {
+        throw new Error('Question not found or deletion failed');
+      }
+
+      // Reorder remaining questions to fill the gap
+      await client.query(`
+        UPDATE questions 
+        SET question_order = question_order - 1
+        WHERE test_id = $1 AND question_order > $2
+      `, [test_id, question_order]);
+
+      // Update test statistics
+      await client.query(`
+        UPDATE tests 
+        SET 
+          total_questions = (SELECT COUNT(*) FROM questions WHERE test_id = $1),
+          total_marks = (SELECT COALESCE(SUM(marks), 0) FROM questions WHERE test_id = $1),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `, [test_id]);
+
+      // Log the deletion (optional - if you have an audit log table)
+      try {
+        await client.query(`
+          INSERT INTO audit_log (
+            table_name, record_id, action, performed_by, performed_at, old_data
+          ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5)
+        `, [
+          'questions',
+          question_id,
+          'DELETE',
+          deleted_by,
+          JSON.stringify(deletedQuestion.rows[0])
+        ]);
+      } catch (auditError) {
+        // If audit log fails, log the error but don't fail the deletion
+        console.warn('Audit log failed:', auditError.message);
+      }
+
+      return deletedQuestion.rows[0];
+    });
+
+    console.log('Successfully deleted question:', result);
+
+    // Helper function to safely parse JSON (same as other functions)
+    const safeParseArray = (data, fieldName = 'field') => {
+      if (Array.isArray(data)) {
+        return data;
+      }
+      
+      if (typeof data === 'string') {
+        try {
+          const parsed = JSON.parse(data);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch (error) {
+          if (data.includes(',')) {
+            return data.split(',').map(item => item.trim());
+          }
+          return [data];
+        }
+      }
+      
+      if (typeof data === 'object' && data !== null) {
+        return [data];
+      }
+      
+      return [];
+    };
+
+    // Format the deleted question for response
+    const formattedQuestion = {
+      ...result,
+      options: safeParseArray(result.options, 'options'),
+      correct_answers: safeParseArray(result.correct_answers, 'correct_answers')
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'Question deleted successfully',
+      data: {
+        deleted_question: formattedQuestion,
+        test_updated: {
+          test_id: test_id,
+          questions_reordered: true
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error deleting question:', error);
+    console.error('Error stack:', error.stack);
+
+    // Handle foreign key constraint violations
+    if (error.code === '23503') {
+      return res.status(409).json({
+        success: false,
+        message: 'Cannot delete question due to existing references (student responses, etc.)'
+      });
+    }
+
+    // Handle question not found in transaction
+    if (error.message === 'Question not found or deletion failed') {
+      return res.status(404).json({
+        success: false,
+        message: 'Question not found'
       });
     }
 
@@ -338,12 +878,55 @@ export const getQuestionsByTestId = async (req, res) => {
 
     const questions = await db.queryMany(query, [testId]);
 
+    // Helper function to safely parse JSON or handle arrays/strings
+    const safeParseArray = (data, fieldName = 'field', questionId = 'unknown') => {
+      console.log(`[Question ${questionId}] Parsing ${fieldName}:`, data, 'Type:', typeof data);
+      
+      if (Array.isArray(data)) {
+        console.log(`[Question ${questionId}] ${fieldName} is already an array:`, data);
+        return data;
+      }
+      
+      if (typeof data === 'string') {
+        try {
+          const parsed = JSON.parse(data);
+          console.log(`[Question ${questionId}] ${fieldName} parsed from JSON string:`, parsed);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch (error) {
+          console.log(`[Question ${questionId}] ${fieldName} JSON parse failed, trying comma split:`, error.message);
+          // Fallback to comma-split if it looks like a comma-separated string
+          if (data.includes(',')) {
+            const split = data.split(',').map(item => item.trim());
+            console.log(`[Question ${questionId}] ${fieldName} split by comma:`, split);
+            return split;
+          }
+          console.log(`[Question ${questionId}] ${fieldName} returning as single item array:`, [data]);
+          return [data];
+        }
+      }
+      
+      if (typeof data === 'object' && data !== null) {
+        console.log(`[Question ${questionId}] ${fieldName} is object, converting to array:`, [data]);
+        return [data];
+      }
+      
+      console.log(`[Question ${questionId}] ${fieldName} defaulting to empty array`);
+      return [];
+    };
+
     // Format questions and optionally hide correct answers
     const formattedQuestions = questions.map(question => {
+      console.log(`Processing question ${question.id}:`, {
+        options: question.options,
+        correct_answers: question.correct_answers,
+        options_type: typeof question.options,
+        correct_answers_type: typeof question.correct_answers
+      });
+
       const formatted = {
         ...question,
-        options: JSON.parse(question.options),
-        correct_answers: JSON.parse(question.correct_answers)
+        options: safeParseArray(question.options, 'options', question.id),
+        correct_answers: safeParseArray(question.correct_answers, 'correct_answers', question.id)
       };
 
       // Hide correct answers if not requested (for student view)
@@ -351,6 +934,12 @@ export const getQuestionsByTestId = async (req, res) => {
         delete formatted.correct_answers;
         delete formatted.explanation;
       }
+
+      console.log(`Formatted question ${question.id}:`, {
+        id: formatted.id,
+        options: formatted.options,
+        correct_answers: formatted.correct_answers || 'hidden'
+      });
 
       return formatted;
     });
@@ -367,6 +956,17 @@ export const getQuestionsByTestId = async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching questions:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Handle JSON parsing errors specifically
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      return res.status(500).json({
+        success: false,
+        message: 'Data format error in database. Please contact administrator.',
+        error: 'Invalid JSON format in stored question data'
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: 'Internal server error',

@@ -9,7 +9,9 @@ import { createExam,
     getAllCategories,
     createCategory, 
     addNewQuestion, 
-    getQuestionsByTestId 
+    getQuestionsByTestId,
+    updateQuestion,
+    deleteQuestion,
 } from '../controllers/examController.js';
 import { protect } from '../middlewares/protect.js';
 
@@ -23,6 +25,8 @@ router.get('/admin/get-all-categories', protect, getAllCategories);
 router.post('/admin/create-category', protect, createCategory);
 router.post('/admin/create-exam', protect, createExam);
 router.post('/admin/add-new-question', protect, addNewQuestion);
+router.put('/admin/update-question/:id', protect, updateQuestion);
+router.delete('/admin/delete-question/:id', protect, deleteQuestion);
 router.get('/admin/get-questions-by-test-id/:testId', protect, getQuestionsByTestId);
 router.get('/:id', protect, getExamById);
 router.put('/admin/update-exam/:id', protect, updateExam);
