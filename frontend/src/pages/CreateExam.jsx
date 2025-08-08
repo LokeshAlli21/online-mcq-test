@@ -480,6 +480,8 @@ const CreateExam = ({ viewOnly = false }) => {
 
     setLoading(true);
 
+    console.log('Submitting exam data:', formData, "\n Action:", action);
+
     try {
       const formDataToSubmit = {
         ...formData,
@@ -510,12 +512,20 @@ const CreateExam = ({ viewOnly = false }) => {
         console.log('Navigating to add questions...');
         const examId = isEditMode ? id : result?.data?.id;
         console.log('Exam ID for questions:', examId);
-        navigate(`/admin/create-exam/add-questions/${examId}`, {replace: true});
+        if (Number.isInteger(Number(examId))) {
+          navigate(`/admin/create-exam/add-questions/${examId}`);
+          return;
+        } else {
+          console.error("Invalid exam ID, navigation aborted");
+          showToast('error', 'Invalid exam ID, please try again.');
+          return;
+        }
       }
       if( action === 'updateOnly') {
         navigate('/');
         return;
       }
+      return
 
     } catch (error) {
       console.error('Error saving exam:', error);
@@ -611,7 +621,7 @@ const CreateExam = ({ viewOnly = false }) => {
           </div>
         </div>
 
-        <form className="space-y-8">
+        <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
           {/* Basic Information */}
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-3">
