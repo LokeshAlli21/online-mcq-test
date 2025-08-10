@@ -8,6 +8,7 @@ import CreateExam from './CreateExam.jsx';
 import ManageStudents from './ManageStudents.jsx';
 import AnalyticsPage from './AnalyticsPage.jsx';
 import AddQuestions from './AddQuestions.jsx';
+import ExamAttempt from './ExamAttempt.jsx';
 
 export {
     NotFoundPage,
@@ -20,4 +21,5 @@ export {
     ManageStudents,
     AnalyticsPage,
     AddQuestions,
+    ExamAttempt,
 }

@@ -23,8 +23,11 @@ import {
   ChevronRight
 } from 'lucide-react';
 import LoadingScreen from '../components/LoadingScreen';
+import { useNavigate } from 'react-router-dom';
 
 function StudentPage() {
+
+  const navigate = useNavigate()
   const userData = useSelector((state) => state.auth.userData);
   const [exams, setExams] = useState([]);
   const [attempts, setAttempts] = useState([]);
@@ -88,6 +91,7 @@ function StudentPage() {
   };
 
   const ExamCard = ({ exam }) => {
+    console.log('Exam Card:', exam);
     const attemptCount = attempts.filter(attempt => attempt.test_id === exam.test_id).length;
     const canAttempt = attemptCount < exam.max_attempts;
     
@@ -210,6 +214,15 @@ function StudentPage() {
             </div>
             
             <button 
+              onClick={() => {
+                if (canAttempt && exam.is_active) {
+                  console.log('Attempt Count:', attemptCount);
+                  console.log('Max Attempts:', exam.max_attempts);
+                  console.log(`Starting exam: ${JSON.stringify(exam)}`);
+                  navigate(`/exams/${exam.test_id}/attempt`); // it is getting as undefined, so we need to check the exam object
+                  console.log(`Navigating to: /exams/${exam.test_id}/attempt`);
+                }
+              }}
               className={`px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all duration-200 ${
                 canAttempt && exam.is_active 
                   ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:scale-105' 

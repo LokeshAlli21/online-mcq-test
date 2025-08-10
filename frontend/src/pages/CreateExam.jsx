@@ -373,7 +373,7 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSubmit, loading, error, v
   );
 });
 
-const ActionButton = ({ onClick, loading, children, variant = 'primary', className = '' }) => {
+const ActionButton = ({ onClick, loading, children, variant = 'primary', className = '', ...props }) => {
   const baseClasses = "px-6 py-3 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:transform-none flex items-center gap-2";
   
   const variantClasses = {
@@ -388,6 +388,7 @@ const ActionButton = ({ onClick, loading, children, variant = 'primary', classNa
       onClick={onClick}
       disabled={loading}
       className={`${baseClasses} ${variantClasses[variant]} ${className}`}
+      {...props}
     >
       {children}
     </button>
@@ -876,6 +877,7 @@ const CreateExam = ({ viewOnly = false }) => {
               {isEditMode ? (
                 <>
                   <ActionButton
+                    type="button"
                     onClick={() => handleSubmitExam('updateOnly')}
                     loading={loading}
                     variant="secondary"
@@ -885,6 +887,7 @@ const CreateExam = ({ viewOnly = false }) => {
                   </ActionButton>
                   
                   <ActionButton
+                    type="button"
                     onClick={() => handleSubmitExam('updateAndAddQuestions')}
                     loading={loading}
                     variant="primary"
@@ -894,6 +897,7 @@ const CreateExam = ({ viewOnly = false }) => {
                   </ActionButton>
                   
                   <ActionButton
+                    type="button"
                     onClick={() => handleSubmitExam('goToQuestions')}
                     loading={loading}
                     variant="success"
@@ -904,6 +908,7 @@ const CreateExam = ({ viewOnly = false }) => {
                 </>
               ) : (
                 <ActionButton
+                  type="button"
                   onClick={() => handleSubmitExam('createAndAddQuestions')}
                   loading={loading}
                   variant="primary"
@@ -918,6 +923,7 @@ const CreateExam = ({ viewOnly = false }) => {
           ) : (
             <div className="flex justify-between">
               <ActionButton
+                type="button"
                 onClick={() => navigate('/')}
                 variant="secondary"
               >

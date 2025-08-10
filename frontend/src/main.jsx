@@ -7,7 +7,7 @@ import AuthLayout from './auth/AuthLayout.jsx'
 import store from "./store/store.js"
 import { Provider } from "react-redux"
 
-import {NotFoundPage , Login, Dashboard , SignUp, CreateExam, ManageStudents, AnalyticsPage, AddQuestions} from './pages/index.js'
+import {NotFoundPage , Login, Dashboard , SignUp, CreateExam, ManageStudents, AnalyticsPage, AddQuestions, ExamAttempt} from './pages/index.js'
 
 const router = createBrowserRouter([
   {
@@ -34,6 +34,14 @@ const router = createBrowserRouter([
         <AuthLayout authentication>
            <Dashboard />
          </AuthLayout>,
+      },
+      {
+        path: "/exams/:id/attempt",
+        element: 
+        <AuthLayout authentication>
+          {" "}
+          <ExamAttempt />
+         </AuthLayout>, 
       },
       {
         path: "/admin/create-exam",
