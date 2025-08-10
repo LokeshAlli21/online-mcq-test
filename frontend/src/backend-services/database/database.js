@@ -200,6 +200,34 @@ class DatabaseService {
     }
   }
 
+  async startExam(testId, studentId) {
+    try {
+      const response = await authenticatedFetch(`${this.baseUrl}/api/exams/start-exam`, {
+        method: "POST",
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ testId, studentId }),
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      console.error("Error starting exam:", error);
+      throw error;
+    }
+  }
+
+  async getAllQuestions(testId, studentId) {
+    try {
+      const response = await authenticatedFetch(`${this.baseUrl}/api/exams/get-all-questions`, {
+        method: "POST",
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ testId, studentId }),
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      console.error("Error fetching all questions:", error);
+      throw error;
+    }
+  }
+
   async getAllStudentExams(studentId) {
     try {
       const response = await authenticatedFetch(`${this.baseUrl}/api/exams/get-all-student-exams/${studentId}`, {

@@ -12,6 +12,7 @@ import { createExam,
     getQuestionsByTestId,
     updateQuestion,
     deleteQuestion,
+    getQuestionsForExam,
 } from '../controllers/examController.js';
 import { protect } from '../middlewares/protect.js';
 
@@ -28,6 +29,7 @@ router.post('/admin/add-new-question', protect, addNewQuestion);
 router.put('/admin/update-question/:id', protect, updateQuestion);
 router.delete('/admin/delete-question/:id', protect, deleteQuestion);
 router.get('/admin/get-questions-by-test-id/:testId', protect, getQuestionsByTestId);
+router.post('/get-all-questions', protect, getQuestionsForExam);
 router.get('/:id', protect, getExamById);
 router.put('/admin/update-exam/:id', protect, updateExam);
 router.delete('/admin/delete-exam/:id', protect, deleteExam);

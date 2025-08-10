@@ -975,6 +975,130 @@ export const getQuestionsByTestId = async (req, res) => {
   }
 };
 
+export const getQuestionsForExam = async (req, res) => {
+  try {
+    console.log(req.body)
+    const { testId } = req.body;
+    const include_answers = 'true';
+
+    // Verify test exists
+    const testExists = await db.findById('tests', testId);
+    if (!testExists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Test not found'
+      });
+    }
+
+    const query = `
+      SELECT 
+        q.*,
+        a.full_name as created_by_username
+      FROM questions q
+      LEFT JOIN admins a ON q.created_by = a.id
+      WHERE q.test_id = $1
+      ORDER BY q.question_order ASC
+    `;
+
+    const questions = await db.queryMany(query, [testId]);
+
+    // Helper function to safely parse JSON or handle arrays/strings
+    const safeParseArray = (data, fieldName = 'field', questionId = 'unknown') => {
+      console.log(`[Question ${questionId}] Parsing ${fieldName}:`, data, 'Type:', typeof data);
+      
+      if (Array.isArray(data)) {
+        console.log(`[Question ${questionId}] ${fieldName} is already an array:`, data);
+        return data;
+      }
+      
+      if (typeof data === 'string') {
+        try {
+          const parsed = JSON.parse(data);
+          console.log(`[Question ${questionId}] ${fieldName} parsed from JSON string:`, parsed);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch (error) {
+          console.log(`[Question ${questionId}] ${fieldName} JSON parse failed, trying comma split:`, error.message);
+          // Fallback to comma-split if it looks like a comma-separated string
+          if (data.includes(',')) {
+            const split = data.split(',').map(item => item.trim());
+            console.log(`[Question ${questionId}] ${fieldName} split by comma:`, split);
+            return split;
+          }
+          console.log(`[Question ${questionId}] ${fieldName} returning as single item array:`, [data]);
+          return [data];
+        }
+      }
+      
+      if (typeof data === 'object' && data !== null) {
+        console.log(`[Question ${questionId}] ${fieldName} is object, converting to array:`, [data]);
+        return [data];
+      }
+      
+      console.log(`[Question ${questionId}] ${fieldName} defaulting to empty array`);
+      return [];
+    };
+
+    // Format questions and optionally hide correct answers
+    const formattedQuestions = questions.map(question => {
+      console.log(`Processing question ${question.id}:`, {
+        options: question.options,
+        correct_answers: question.correct_answers,
+        options_type: typeof question.options,
+        correct_answers_type: typeof question.correct_answers
+      });
+
+      const formatted = {
+        ...question,
+        options: safeParseArray(question.options, 'options', question.id),
+        correct_answers: safeParseArray(question.correct_answers, 'correct_answers', question.id)
+      };
+
+      // Hide correct answers if not requested (for student view)
+      if (include_answers !== 'true') {
+        delete formatted.correct_answers;
+        delete formatted.explanation;
+      }
+
+      console.log(`Formatted question ${question.id}:`, {
+        id: formatted.id,
+        options: formatted.options,
+        correct_answers: formatted.correct_answers || 'hidden'
+      });
+
+      return formatted;
+    });
+
+    res.json({
+      success: true,
+      data: formattedQuestions,
+      meta: {
+        test_id: parseInt(testId),
+        total_questions: formattedQuestions.length,
+        includes_answers: include_answers === 'true'
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching questions:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Handle JSON parsing errors specifically
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      return res.status(500).json({
+        success: false,
+        message: 'Data format error in database. Please contact administrator.',
+        error: 'Invalid JSON format in stored question data'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 export const getAllExams = async (req, res) => {
   try {
     const exams = await db.query('SELECT * FROM tests ORDER BY created_at DESC');
